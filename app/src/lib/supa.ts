@@ -1,0 +1,150 @@
+import { createClient } from '@supabase/supabase-js'
+import type { Api } from './api'
+import { DEFAULT_SETTINGS } from './seed'
+import type { AppNotification, Product, Settings } from './types'
+
+const url = import.meta.env.VITE_SUPABASE_URL as string
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string
+
+export const supabase = url && key ? createClient(url, key) : (null as never)
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function check(r: { data: any; error: { message: string } | null }): any {
+  if (r.error) throw new Error(r.error.message)
+  return r.data
+}
+
+async function uid() {
+  const { data } = await supabase.auth.getSession()
+  return data.session?.user.id ?? null
+}
+
+const normProduct = (p: Product): Product => ({ ...p, price: Number(p.price), commission_pct: Number(p.commission_pct), features: p.features ?? [] })
+
+export const supabaseApi: Api = {
+  isDemo: false,
+
+  currentUserId: uid,
+  onAuthChange(cb) {
+    const { data } = supabase.auth.onAuthStateChange(() => cb())
+    return () => data.subscription.unsubscribe()
+  },
+  async signIn(email, password) {
+    check(await supabase.auth.signInWithPassword({ email, password }))
+  },
+  async signUp(i) {
+    const data = check(await supabase.auth.signUp({
+      email: i.email, password: i.password,
+      options: { data: { full_name: i.full_name, phone: i.phone, city: i.city, ref_code: i.ref_code.trim().toUpperCase() } },
+    }))
+    return { needsConfirmation: !data.session }
+  },
+  async resetPassword(email) {
+    check(await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/login' }))
+  },
+  async signOut() {
+    await supabase.auth.signOut()
+  },
+
+  async getProfile() {
+    const id = await uid()
+    if (!id) return null
+    return check(await supabase.from('profiles').select('*').eq('id', id).maybeSingle())
+  },
+  async updateProfile(patch) {
+    const id = await uid()
+    check(await supabase.from('profiles').update(patch).eq('id', id!))
+  },
+  async listProducts() {
+    const d = check(await supabase.from('products').select('*').order('sort_order'))
+    return (d as Product[]).map(normProduct)
+  },
+  async getProduct(slug) {
+    const d = check(await supabase.from('products').select('*').eq('slug', slug).maybeSingle())
+    return d ? normProduct(d as Product) : null
+  },
+  async listMyOrders() {
+    return check(await supabase.from('my_orders').select('*').order('created_at', { ascending: false }))
+  },
+  async listWallet() {
+    const id = await uid()
+    return check(await supabase.from('wallet_transactions').select('*').eq('partner_id', id!).order('created_at', { ascending: false }))
+  },
+  async listWithdrawals() {
+    const id = await uid()
+    return check(await supabase.from('withdrawals').select('*').eq('partner_id', id!).order('created_at', { ascending: false }))
+  },
+  async requestWithdrawal(amount) {
+    check(await supabase.rpc('request_withdrawal', { p_amount: amount }))
+  },
+  async listTeam() {
+    return check(await supabase.from('my_team').select('*').order('created_at', { ascending: false }))
+  },
+  async listNotifications() {
+    const id = await uid()
+    const list = check(await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)) as AppNotification[]
+    const reads = check(await supabase.from('notification_reads').select('notification_id').eq('user_id', id!)) as { notification_id: string }[]
+    const r = new Set(reads.map((x) => x.notification_id))
+    return list.map((n) => ({ ...n, read: r.has(n.id) }))
+  },
+  async markNotificationsRead(ids) {
+    const id = await uid()
+    if (!ids.length) return
+    check(await supabase.from('notification_reads').upsert(ids.map((n) => ({ notification_id: n, user_id: id }))))
+  },
+  async createTicket(subject, message) {
+    const id = await uid()
+    check(await supabase.from('support_tickets').insert({ user_id: id, subject, message }))
+  },
+  async getSettings() {
+    const d = check(await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle()) as Settings | null
+    return d ? { ...DEFAULT_SETTINGS, ...d, min_withdrawal: Number(d.min_withdrawal), partner_kit_price: Number(d.partner_kit_price) } : DEFAULT_SETTINGS
+  },
+  async requestPartnerKit(ref) {
+    check(await supabase.rpc('request_partner_kit', { p_payment_ref: ref }))
+  },
+  async listLessons() {
+    return check(await supabase.from('lessons').select('*').order('sort_order'))
+  },
+
+  async partnerNameForCode() {
+    // Partner names are private; buyers only see the product. Return null intentionally.
+    return null
+  },
+  async createOrder(i) {
+    return check(await supabase.rpc('create_order', {
+      p_product_slug: i.slug, p_ref_code: i.ref, p_name: i.name, p_phone: i.phone,
+      p_email: i.email || null, p_address: i.address || null,
+    })) as string
+  },
+
+  async adminListOrders() {
+    return check(await supabase.from('orders').select('*, products(title, mode), profiles(full_name, referral_code)').order('created_at', { ascending: false }).limit(500))
+  },
+  async adminUpdateOrder(id, patch) {
+    check(await supabase.from('orders').update(patch).eq('id', id))
+  },
+  async adminListWithdrawals() {
+    return check(await supabase.from('withdrawals').select('*, profiles(full_name, upi_id, bank_account_number, bank_ifsc)').order('created_at', { ascending: false }))
+  },
+  async adminUpdateWithdrawal(id, status, note) {
+    check(await supabase.from('withdrawals').update({ status, admin_note: note ?? null }).eq('id', id))
+  },
+  async adminListPartners() {
+    return check(await supabase.from('profiles').select('*').order('created_at', { ascending: false }))
+  },
+  async adminUpdatePartner(id, patch) {
+    check(await supabase.from('profiles').update(patch).eq('id', id))
+  },
+  async adminSaveProduct(p) {
+    const { id, ...rest } = p
+    if (id) check(await supabase.from('products').update(rest).eq('id', id))
+    else check(await supabase.from('products').insert(rest))
+  },
+  async adminBroadcast(title, body) {
+    check(await supabase.from('notifications').insert({ title, body, user_id: null }))
+  },
+  async adminSaveSettings(s) {
+    check(await supabase.from('app_settings').update(s).eq('id', 1))
+  },
+}

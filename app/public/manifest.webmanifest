@@ -1,0 +1,9 @@
+{
+  "name": "Leaders Earning and Skill Board",
+  "short_name": "LESB Partner",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1834",
+  "theme_color": "#112349",
+  "icons": [{ "src": "/logo.jpeg", "sizes": "1080x1080", "type": "image/jpeg", "purpose": "any" }]
+}
