@@ -50,7 +50,8 @@ const hasSupabase = Boolean(import.meta.env.VITE_SUPABASE_URL && import.meta.env
 
 export const api: Api = hasSupabase ? supabaseApi : demoApi
 
-export const PUBLIC_URL = (import.meta.env.VITE_PUBLIC_URL as string | undefined) || window.location.origin
+export { PUBLIC_URL } from './config'
+import { PUBLIC_URL } from './config'
 
 export function partnerLink(slug: string, code: string) {
   return `${PUBLIC_URL}/p/${slug}?ref=${code}`

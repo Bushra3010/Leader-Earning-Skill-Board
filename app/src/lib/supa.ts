@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Api } from './api'
+import { PUBLIC_URL } from './config'
 import { DEFAULT_SETTINGS } from './seed'
 import type { AppNotification, Product, Settings } from './types'
 
@@ -45,7 +46,7 @@ export const supabaseApi: Api = {
     const data = check(await supabase.auth.signUp({
       email: i.email.trim(), password: i.password,
       options: {
-        emailRedirectTo: window.location.origin + '/login',
+        emailRedirectTo: PUBLIC_URL + '/login',
         data: { full_name: i.full_name, phone: i.phone, city: i.city, ref_code: i.ref_code.trim().toUpperCase() },
       },
     }))
@@ -57,10 +58,10 @@ export const supabaseApi: Api = {
     return { needsConfirmation: !data.session }
   },
   async resendConfirmation(email) {
-    check(await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: window.location.origin + '/login' } }))
+    check(await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: PUBLIC_URL + '/login' } }))
   },
   async resetPassword(email) {
-    check(await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/login' }))
+    check(await supabase.auth.resetPasswordForEmail(email, { redirectTo: PUBLIC_URL + '/login' }))
   },
   async signOut() {
     await supabase.auth.signOut()
