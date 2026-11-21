@@ -1,0 +1,9 @@
+*.apk
+*.jpeg
+!app/public/*.jpeg
+app/android
+app/node_modules
+app/dist
+app/.env
+app/.env.local
+node_modules
