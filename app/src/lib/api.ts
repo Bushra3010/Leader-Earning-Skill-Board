@@ -13,6 +13,7 @@ export interface Api {
   signIn(email: string, password: string): Promise<void>
   signUp(input: SignUpInput): Promise<{ needsConfirmation: boolean }>
   resetPassword(email: string): Promise<void>
+  resendConfirmation(email: string): Promise<void>
   signOut(): Promise<void>
   // partner
   getProfile(): Promise<Profile | null>

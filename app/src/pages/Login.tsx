@@ -13,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState(api.isDemo ? 'demo1234' : '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [unconfirmed, setUnconfirmed] = useState(false)
   if (userId) return <Navigate to={loc.state?.from ?? '/'} replace />
 
   return (
@@ -23,15 +24,24 @@ export default function Login() {
         </div>
       )}
       <form className="space-y-4" onSubmit={async (e) => {
-        e.preventDefault(); setBusy(true); setErr(null)
+        e.preventDefault(); setBusy(true); setErr(null); setUnconfirmed(false)
         try { await api.signIn(email, password); await refresh(); nav(loc.state?.from ?? '/', { replace: true }) }
-        catch (er) { setErr(er instanceof Error ? er.message : 'Login failed') } finally { setBusy(false) }
+        catch (er) {
+          const msg = er instanceof Error ? er.message : 'Login failed'
+          if (msg === 'EMAIL_NOT_CONFIRMED') { setUnconfirmed(true); setErr('Please confirm your email first. Open the link we sent to ' + email.trim() + ', then log in.') }
+          else setErr(msg)
+        } finally { setBusy(false) }
       }}>
         <div><label className="label" htmlFor="email">Email</label>
           <input id="email" className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div><label className="label" htmlFor="pw">Password</label>
           <input id="pw" className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></div>
         <ErrorNote msg={err} />
+        {unconfirmed && (
+          <button type="button" className="w-full text-center text-sm font-semibold text-navy-600 underline" onClick={async () => {
+            try { await api.resendConfirmation(email); toast('Confirmation email sent again. Check inbox and spam.') } catch (er) { setErr(er instanceof Error ? er.message : 'Failed') }
+          }}>Resend confirmation email</button>
+        )}
         <button className="btn-primary w-full !py-3.5" disabled={busy}>{busy ? 'Signing in…' : 'Login'}</button>
         <button type="button" className="w-full text-center text-sm font-semibold text-navy-600" onClick={async () => {
           if (!email) { setErr('Enter your email first'); return }

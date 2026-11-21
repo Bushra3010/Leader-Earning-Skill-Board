@@ -1,139 +1,178 @@
-import { useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { AppHeader, ErrorNote, ModeTabs, SectionTitle, ShareSheet, Shell, Spinner } from '../components/ui'
+import { useRef, useState, type ReactNode } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { BrandHeader, ErrorNote, ModeTabs, PartnerIdChip, ShareSheet, Shell } from '../components/ui'
+import { IconArrowRight, IconBolt, IconCart, IconCapFill, IconChart, IconHand, IconSearch, IconShare, IconStar, IconUsers, IconWallet, Trophy } from '../components/icons'
 import { api, inr, walletBalance } from '../lib/api'
 import { useLoad, useSession } from '../lib/session'
-import { MODE_LABEL, type Product } from '../lib/types'
-
-const GRID_TITLE = { pre_school: 'Pre-School Kits', pro_school: 'Pro-School Courses', school: 'School Programs' } as const
+import type { Product } from '../lib/types'
 
 export default function Home() {
   const { mode, profile, settings } = useSession()
-  const [products, loading, , err] = useLoad(() => api.listProducts(), [])
+  const nav = useNavigate()
+  const [products, , , err] = useLoad(() => api.listProducts(), [])
   const [orders] = useLoad(() => api.listMyOrders(), [])
   const [wallet] = useLoad(() => api.listWallet(), [])
   const [share, setShare] = useState<Product | null>(null)
+  const [q, setQ] = useState('')
 
   const list = (products ?? []).filter((p) => p.mode === mode && p.active)
   const featured = list.filter((p) => p.is_featured)
+  const banners = featured.length ? featured : list.slice(0, 3)
   const paid = (orders ?? []).filter((o) => o.status === 'paid')
-  const monthStart = new Date(); monthStart.setDate(1); monthStart.setHours(0, 0, 0, 0)
-  const thisMonth = paid.filter((o) => new Date(o.created_at) >= monthStart).reduce((s, o) => s + Number(o.commission_amount), 0)
+  const totalSales = paid.reduce((s, o) => s + Number(o.amount), 0)
   const kitNeeded = mode === 'pre_school' && settings.require_partner_kit && profile?.kit_status !== 'paid'
+  const firstName = (profile?.full_name || 'Partner').split(' ')[0]
 
   return (
     <Shell>
-      <AppHeader page={`Dashboard • ${MODE_LABEL[mode]}`}>
-        <ModeTabs noun="products" />
-      </AppHeader>
+      <BrandHeader />
 
-      <main className="space-y-5 p-4">
+      <main className="relative -mt-10 space-y-4 px-4">
+        {/* greeting + search */}
+        <section className="overflow-hidden rounded-[28px] bg-gradient-to-br from-white via-white to-[#eaf0ff] p-4 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
+          <div className="flex items-center">
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1 text-lg font-semibold text-slate-800">Hello <IconHand size={20} className="text-amber-400" /></p>
+              <p className="truncate font-display text-[30px] font-extrabold leading-tight text-[#0f1b4d]">{firstName}</p>
+              <div className="mt-2"><PartnerIdChip /></div>
+            </div>
+            <Trophy className="-my-2 -mr-3 h-[104px] w-[124px] shrink-0" />
+          </div>
+          <form className="mt-4" role="search" onSubmit={(e) => { e.preventDefault(); nav(`/products${q.trim() ? `?q=${encodeURIComponent(q.trim())}` : ''}`) }}>
+            <label className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-[inset_0_1px_3px_rgba(15,23,42,0.06)]">
+              <IconSearch size={22} className="text-slate-700" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search courses, products, brands..." aria-label="Search"
+                className="w-full bg-transparent text-[15px] text-slate-800 outline-none placeholder:text-slate-500" />
+            </label>
+          </form>
+        </section>
+
+        <ModeTabs />
+
         <ErrorNote msg={err} />
 
         {kitNeeded && (
-          <section className="rounded-3xl border border-red-200 bg-gradient-to-b from-red-100 to-red-50 p-4">
-            <div className="mb-1 flex items-center gap-3">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-red-500 text-lg text-white">⚠️</span>
-              <h2 className="text-lg font-extrabold">{profile?.kit_status === 'pending' ? 'Kit Payment Under Review' : 'Kit Purchase Pending'}</h2>
-            </div>
-            <p className="mb-3 text-sm text-slate-600">Pay → Delivery → Start selling Pre-School kits</p>
-            <div className="card flex items-center gap-3 p-4">
-              <div className="min-w-0 flex-1">
-                <p className="font-extrabold">Partner Kit Required</p>
-                <p className="text-sm text-slate-500">One-time {inr(settings.partner_kit_price)} — demo kit for showing parents. Needed only for Pre-School products.</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="chip">Mode: PRE</span>
-                  <span className="chip">Status: {profile?.kit_status === 'pending' ? 'Under review' : 'Pending'}</span>
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col gap-2">
-                <Link to="/kit" className="btn-primary">{profile?.kit_status === 'pending' ? 'Details' : 'Pay Now'}</Link>
-                <Link to="/kit" className="btn-soft">Check status</Link>
-              </div>
-            </div>
-          </section>
+          <Link to="/kit" className="flex items-center gap-3 rounded-[24px] border border-red-200 bg-gradient-to-r from-red-50 to-white p-4 shadow-sm">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500 text-xl text-white">⚠️</span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-extrabold text-slate-900">{profile?.kit_status === 'pending' ? 'Kit payment under review' : 'Partner kit required'}</span>
+              <span className="block text-sm text-slate-600">One-time {inr(settings.partner_kit_price)} to sell Pre-School kits</span>
+            </span>
+            <span className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-bold text-white">{profile?.kit_status === 'pending' ? 'Details' : 'Pay now'}</span>
+          </Link>
         )}
 
-        {featured.length > 0 && <Carousel items={featured} onShare={setShare} />}
+        {banners.length > 0 && <Carousel items={banners} onShare={setShare} />}
 
-        <section className="card p-4">
-          <SectionTitle icon="💰" title="Your Earnings Snapshot" sub="Sales • Wallet • Points (quick view)" />
-          <div className="grid grid-cols-3 gap-2.5">
-            <Stat icon="📈" label="Total Sales" value={inr(paid.reduce((s, o) => s + Number(o.amount), 0))} to="/orders" />
-            <Stat icon="🗓️" label="This Month" value={inr(thisMonth)} hint="commission" to="/wallet" />
-            <Stat icon="👛" label="My Wallet" value={inr(walletBalance(wallet ?? []))} to="/wallet" />
+        {/* earnings snapshot */}
+        <section className="rounded-[26px] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+          <div className="mb-3.5 flex items-center gap-3">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-500"><IconHand size={22} /></span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[16.5px] font-extrabold leading-tight text-[#0f1b4d]">Your Earnings Snapshot</h2>
+              <p className="text-[13px] text-slate-600">Real-time performance</p>
+            </div>
+            <Link to="/wallet" className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-[#c9d5f7] bg-white px-2.5 py-1.5 text-[12px] font-bold text-[#2347c9]">View Details <IconArrowRight size={14} /></Link>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <Stat tone="green" icon={<IconChart size={18} />} label="Total Sales" value={inr(totalSales)} to="/orders" />
+            <Stat tone="blue" icon={<IconWallet size={18} />} label="Wallet Balance" value={inr(walletBalance(wallet ?? []))} to="/wallet" />
+            <Stat tone="purple" icon={<IconStar size={18} />} label="Reward Points" value={(profile?.points ?? 0).toLocaleString('en-IN')} to="/wallet" />
           </div>
         </section>
 
-        <section className="card p-4">
-          <SectionTitle icon={mode === 'pre_school' ? '🧸' : mode === 'pro_school' ? '💼' : '🏫'} title={GRID_TITLE[mode]} sub="Share your link & earn the commission shown" />
-          {loading ? <Spinner /> : (
-            <div className="grid grid-cols-2 gap-3">
-              {list.map((p) => <ProductCard key={p.id} p={p} onShare={() => setShare(p)} locked={kitNeeded && p.requires_partner_kit} />)}
+        {/* quick actions */}
+        <section className="rounded-[26px] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+          <div className="mb-3.5 flex items-center gap-3">
+            <IconBolt size={34} className="text-amber-400" />
+            <div>
+              <h2 className="text-[19px] font-extrabold leading-tight text-[#0f1b4d]">Quick Actions</h2>
+              <p className="text-sm text-slate-600">Do more, earn more</p>
             </div>
-          )}
-          {!loading && list.length === 0 && <p className="py-6 text-center text-sm text-slate-500">No products in this section yet.</p>}
+          </div>
+          <div className="grid grid-cols-4 gap-2.5">
+            <Action to="/products" label="Start Selling" icon={<IconCart size={30} />} cls="from-violet-100 to-violet-50 text-violet-600" />
+            <Action to="/products" label="Share Products" icon={<IconShare size={30} />} cls="from-sky-100 to-sky-50 text-[#2b6be0]" />
+            <Action to="/learn" label="My Courses" icon={<IconCapFill size={32} />} cls="from-orange-100 to-amber-50 text-orange-500" />
+            <Action to="/team" label="My Team" icon={<IconUsers size={30} />} cls="from-emerald-100 to-emerald-50 text-emerald-600" />
+          </div>
         </section>
 
-        <p className="px-2 text-center text-xs text-slate-400">You earn only from sales made through your own link. Commission % is fixed per product and shown before you share.</p>
+        <p className="px-2 pb-2 text-center text-xs text-slate-400">You earn only from sales made through your own link. Commission % is fixed per product and shown before you share.</p>
       </main>
       <ShareSheet product={share} onClose={() => setShare(null)} />
     </Shell>
   )
 }
 
-function Stat({ icon, label, value, hint, to }: { icon: string; label: string; value: string; hint?: string; to: string }) {
+const TONES = {
+  green: { box: 'bg-gradient-to-br from-emerald-50 to-white', icon: 'text-emerald-600' },
+  blue: { box: 'bg-gradient-to-br from-sky-50 to-white', icon: 'text-sky-500' },
+  purple: { box: 'bg-gradient-to-br from-violet-50 to-white', icon: 'text-violet-500' },
+} as const
+
+function Stat({ tone, icon, label, value, to }: { tone: keyof typeof TONES; icon: ReactNode; label: string; value: string; to: string }) {
+  const t = TONES[tone]
   return (
-    <Link to={to} className="rounded-2xl border border-slate-200 bg-white p-3 transition active:scale-[0.98]">
-      <span className="grid h-9 w-9 place-items-center rounded-full bg-slate-100">{icon}</span>
-      <p className="mt-2 text-xs font-bold text-slate-500">{label}</p>
-      <p className="text-base font-extrabold">{value}</p>
-      {hint && <p className="text-[10px] text-slate-400">{hint}</p>}
+    <Link to={to} className={`rounded-2xl border border-slate-100 p-2.5 transition active:scale-[0.98] ${t.box}`}>
+      <span className="flex items-center gap-1.5">
+        <span className={`shrink-0 ${t.icon}`}>{icon}</span>
+        <span className="text-[11px] font-medium leading-tight text-slate-700">{label}</span>
+      </span>
+      <span className="mt-1 block truncate text-[17px] font-extrabold leading-tight text-[#0f1b4d]">{value}</span>
     </Link>
   )
 }
 
-export function ProductCard({ p, onShare, locked }: { p: Product; onShare: () => void; locked?: boolean }) {
+function Action({ to, label, icon, cls }: { to: string; label: string; icon: ReactNode; cls: string }) {
   return (
-    <div className="flex flex-col rounded-3xl border border-slate-200 bg-white p-3.5">
-      <div className="mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 text-3xl">{p.emoji}</div>
-      <h3 className="text-[15px] font-extrabold leading-snug">{p.title}</h3>
-      {p.duration && <p className="text-xs text-slate-500">Duration: {p.duration}</p>}
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <span className="chip">{inr(p.price)}{p.billing === 'monthly' ? '/mo' : ''}</span>
-        <span className="chip !border-emerald-200 !bg-emerald-50 !text-emerald-700">Earn {p.commission_pct}%</span>
-      </div>
-      <div className="mt-auto grid grid-cols-2 gap-2 pt-3">
-        {locked ? <Link to="/kit" className="btn-soft !px-2 text-xs">🔒 Kit</Link>
-          : <button className="btn-primary !px-2" onClick={onShare}>Share</button>}
-        <Link to={`/product/${p.slug}`} className="btn-soft !px-2">Open</Link>
-      </div>
-    </div>
+    <Link to={to} className="flex flex-col items-center gap-1.5 text-center transition active:scale-95">
+      <span className={`grid h-[60px] w-full place-items-center rounded-2xl bg-gradient-to-b ${cls}`}>{icon}</span>
+      <span className="text-[12.5px] font-bold leading-tight text-slate-900">{label}</span>
+    </Link>
   )
+}
+
+/** Splits a title so the last word can be highlighted in gold. */
+function splitTitle(t: string) {
+  const i = t.lastIndexOf(' ')
+  return i > 0 ? [t.slice(0, i + 1), t.slice(i + 1)] : ['', t]
 }
 
 function Carousel({ items, onShare }: { items: Product[]; onShare: (p: Product) => void }) {
   const ref = useRef<HTMLDivElement>(null)
   const [idx, setIdx] = useState(0)
   return (
-    <section className="card p-4">
-      <SectionTitle icon="⭐" title="Start Selling Now" sub="Top products • Tap & share to earn today" />
-      <div ref={ref} className="no-scrollbar -mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1"
-        onScroll={(e) => { const el = e.currentTarget; setIdx(Math.round(el.scrollLeft / (el.clientWidth * 0.88))) }}>
-        {items.map((p) => (
-          <div key={p.id} className={`relative flex min-h-[11.5rem] w-[88%] shrink-0 snap-center flex-col justify-end overflow-hidden rounded-3xl bg-gradient-to-br ${p.banner_gradient ?? 'from-navy-900 to-navy-600'} p-5 text-white`}>
-            <span className="absolute right-4 top-3 text-5xl opacity-90 drop-shadow-lg">{p.emoji}</span>
-            <span className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
-            <p className="relative pr-14 pt-10 text-xs font-semibold uppercase tracking-wider text-gold-300">Earn {p.commission_pct}% per sale</p>
-            <h3 className="relative line-clamp-2 font-display text-xl font-extrabold leading-tight">{p.title}</h3>
-            <p className="relative line-clamp-1 text-sm text-white/80">{p.subtitle}</p>
-            <button className="btn-gold relative mt-3 self-start !py-2" onClick={() => onShare(p)}>Start Your Earning →</button>
-          </div>
-        ))}
+    <section>
+      <div ref={ref} className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto"
+        onScroll={(e) => { const el = e.currentTarget; setIdx(Math.round(el.scrollLeft / el.clientWidth)) }}>
+        {items.map((p) => {
+          const [head, tail] = splitTitle(p.title)
+          return (
+            <div key={p.id} className="relative flex min-h-[200px] w-full shrink-0 snap-center flex-col overflow-hidden rounded-[26px] bg-gradient-to-br from-[#1b36a8] via-[#2245c4] to-[#3a5fe0] p-5 text-white">
+              <span className="pointer-events-none absolute -bottom-10 right-2 h-32 w-40 rounded-[50%] bg-[#4c6ff0]/50" />
+              <span className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/[0.06]" />
+              <span className="pointer-events-none absolute bottom-6 right-3 text-[64px] leading-none drop-shadow-[0_8px_12px_rgba(0,0,0,0.35)]">{p.emoji}</span>
+              <span className="relative self-start rounded-full bg-gradient-to-r from-gold-300 to-gold-400 px-3 py-1 text-[13px] font-extrabold uppercase tracking-wide text-[#14246b]">Earn {p.commission_pct}% per sale</span>
+              <h3 className="relative mt-3 line-clamp-3 pr-14 font-display text-[20px] font-extrabold leading-[1.2]">
+                {head}<span className="text-gold-300">{tail}</span>
+              </h3>
+              {p.subtitle && <p className="relative mt-1 line-clamp-2 pr-24 text-[13px] text-white/90">{p.subtitle}</p>}
+              <button className="relative mt-auto inline-flex items-center gap-2 self-start rounded-full bg-gradient-to-r from-[#ffd75e] to-[#f5b82e] px-5 py-2.5 text-[15px] font-extrabold text-[#14246b] shadow-[0_6px_14px_rgba(245,184,46,0.4)] active:scale-95"
+                style={{ marginTop: '1rem' }} onClick={() => onShare(p)}>
+                Start Your Earning <IconArrowRight size={18} />
+              </button>
+            </div>
+          )
+        })}
       </div>
       {items.length > 1 && (
         <div className="mt-3 flex justify-center gap-1.5">
-          {items.map((p, i) => <span key={p.id} className={`h-2 rounded-full transition-all ${i === idx ? 'w-5 bg-[var(--accent-to)]' : 'w-2 bg-slate-300'}`} />)}
+          {items.map((p, i) => (
+            <button key={p.id} aria-label={`Show slide ${i + 1}`}
+              onClick={() => ref.current?.scrollTo({ left: i * ref.current.clientWidth, behavior: 'smooth' })}
+              className={`h-2 rounded-full transition-all ${i === idx ? 'w-6 bg-[#2347c9]' : 'w-2 bg-[#c9d3ee]'}`} />
+          ))}
         </div>
       )}
     </section>

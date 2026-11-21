@@ -10,7 +10,10 @@ export const supabase = url && key ? createClient(url, key) : (null as never)
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function check(r: { data: any; error: { message: string } | null }): any {
-  if (r.error) throw new Error(r.error.message)
+  if (r.error) {
+    if (/rate limit/i.test(r.error.message)) throw new Error('Too many sign-up emails were sent in the last hour. Please try again in about an hour.')
+    throw new Error(r.error.message)
+  }
   return r.data
 }
 
@@ -30,14 +33,31 @@ export const supabaseApi: Api = {
     return () => data.subscription.unsubscribe()
   },
   async signIn(email, password) {
-    check(await supabase.auth.signInWithPassword({ email, password }))
+    const r = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+    if (r.error) {
+      const m = r.error.message.toLowerCase()
+      if (m.includes('email not confirmed')) throw new Error('EMAIL_NOT_CONFIRMED')
+      if (m.includes('invalid login credentials')) throw new Error('Wrong email or password. If you forgot your password, tap "Forgot password?" below.')
+      throw new Error(r.error.message)
+    }
   },
   async signUp(i) {
     const data = check(await supabase.auth.signUp({
-      email: i.email, password: i.password,
-      options: { data: { full_name: i.full_name, phone: i.phone, city: i.city, ref_code: i.ref_code.trim().toUpperCase() } },
+      email: i.email.trim(), password: i.password,
+      options: {
+        emailRedirectTo: window.location.origin + '/login',
+        data: { full_name: i.full_name, phone: i.phone, city: i.city, ref_code: i.ref_code.trim().toUpperCase() },
+      },
     }))
+    // Supabase hides "already registered" by returning a fake user with no identities.
+    // In that case the new password was NOT saved, so tell the user instead of pretending it worked.
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+      throw new Error('This email is already registered. Please log in, or use "Forgot password?" on the login page to set a new password.')
+    }
     return { needsConfirmation: !data.session }
+  },
+  async resendConfirmation(email) {
+    check(await supabase.auth.resend({ type: 'signup', email: email.trim(), options: { emailRedirectTo: window.location.origin + '/login' } }))
   },
   async resetPassword(email) {
     check(await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + '/login' }))

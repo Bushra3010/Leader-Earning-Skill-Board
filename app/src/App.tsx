@@ -16,6 +16,8 @@ import PartnerKit from './pages/PartnerKit'
 import PublicProduct from './pages/PublicProduct'
 import Privacy from './pages/Privacy'
 import Admin from './pages/Admin'
+import Products from './pages/Products'
+import More from './pages/More'
 
 function Protected({ children, admin }: { children: ReactNode; admin?: boolean }) {
   const { loading, userId, profile } = useSession()
@@ -34,6 +36,8 @@ export default function App() {
       <Route path="/p/:slug" element={<PublicProduct />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/" element={<Protected><Home /></Protected>} />
+      <Route path="/products" element={<Protected><Products /></Protected>} />
+      <Route path="/more" element={<Protected><More /></Protected>} />
       <Route path="/product/:slug" element={<Protected><ProductDetail /></Protected>} />
       <Route path="/orders" element={<Protected><Orders /></Protected>} />
       <Route path="/team" element={<Protected><Team /></Protected>} />

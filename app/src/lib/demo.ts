@@ -161,6 +161,7 @@ export const demoApi: Api = {
     return { needsConfirmation: false }
   },
   async resetPassword() { /* demo: nothing to send */ },
+  async resendConfirmation() { /* demo: nothing to send */ },
   async signOut() { setSession(null) },
 
   async getProfile() { const s = session(); return delay(load().profiles.find((p) => p.id === s) ?? null) },

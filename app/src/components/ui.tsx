@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Link, NavLink, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { IconBell, IconBook, IconCapFill, IconClipboard, IconGrid, IconGridFill, IconHome, IconHomeFill, IconHorse, IconIdCard, IconLayers, IconPlay, IconUser } from './icons'
 import { api, partnerLink } from '../lib/api'
 import { useLoad, useSession } from '../lib/session'
 import { MODE_LABEL, type Mode, type Product } from '../lib/types'
@@ -63,58 +64,96 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   )
 }
 
-export function ModeTabs({ noun }: { noun: string }) {
+const MODE_ICON: Record<Mode, (p: { size?: number }) => JSX.Element> = { pre_school: IconHorse, pro_school: IconCapFill, school: IconBook }
+
+export function ModeTabs(_props: { noun?: string }) {
   const { mode, setMode } = useSession()
   const modes: Mode[] = ['pre_school', 'pro_school', 'school']
   return (
-    <div>
-      <div className="grid grid-cols-3 gap-1 rounded-full bg-slate-100 p-1.5">
-        {modes.map((m) => (
-          <button key={m} onClick={() => setMode(m)}
-            className={`rounded-full py-2.5 text-sm font-bold transition ${m === mode ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-white shadow-md' : 'text-slate-600'}`}>
+    <div className="grid grid-cols-3 gap-3">
+      {modes.map((m) => {
+        const Icon = MODE_ICON[m]
+        const on = m === mode
+        return (
+          <button key={m} onClick={() => setMode(m)} aria-pressed={on}
+            className={`flex flex-col items-center justify-center gap-1.5 rounded-[22px] py-3.5 text-[15px] font-extrabold transition active:scale-[0.97] ${on
+              ? 'bg-gradient-to-b from-[#2f5be6] to-[#1b3fc2] text-white shadow-[0_8px_20px_rgba(35,71,201,0.35)]'
+              : 'border border-slate-200/80 bg-white text-slate-900 shadow-[0_4px_14px_rgba(15,23,42,0.06)]'}`}>
+            <span className={on ? 'text-white' : 'text-[#2347c9]'}><Icon size={30} /></span>
             {MODE_LABEL[m]}
           </button>
-        ))}
+        )
+      })}
+    </div>
+  )
+}
+
+export function BrandLogo({ size = 56 }: { size?: number }) {
+  return (
+    <span className="grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-gold-300 via-gold-500 to-gold-700 p-[3px] shadow-[0_6px_16px_rgba(0,0,0,0.3)]" style={{ width: size, height: size }}>
+      <img src="/logo.jpeg" alt="Leaders logo" className="h-full w-full rounded-full border-2 border-white object-cover" />
+    </span>
+  )
+}
+
+/** Blue curved brand band used at the top of main screens. */
+export function BrandHeader({ title }: { title?: string }) {
+  const [notes] = useLoad(() => api.listNotifications(), [])
+  const unread = notes?.filter((n) => !n.read).length ?? 0
+  return (
+    <div className="relative overflow-hidden rounded-b-[36px] bg-gradient-to-br from-[#1a37ad] via-[#2347c9] to-[#3563e8] px-5 pb-14 pt-5 text-white">
+      <span className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-white/[0.07]" />
+      <span className="pointer-events-none absolute -left-10 bottom-0 h-32 w-72 rounded-[50%] bg-white/[0.05]" />
+      <div className="relative flex items-center gap-3">
+        <BrandLogo size={58} />
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-[26px] font-extrabold leading-none tracking-tight">Leaders</p>
+          <p className="mt-1 truncate text-[15px] text-white/85">{title ?? 'Earning & Skills App'}</p>
+        </div>
+        <Link to="/notifications" className="relative grid h-12 w-12 place-items-center rounded-full bg-white text-[#14246b] shadow-md active:scale-95" aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`}>
+          <IconBell size={24} />
+          {unread > 0 && <span className="absolute right-0.5 top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-red-500" />}
+        </Link>
+        <Link to="/profile" className="grid h-12 w-12 place-items-center rounded-full bg-white text-[#14246b] shadow-md active:scale-95" aria-label="My profile">
+          <IconUser size={24} />
+        </Link>
       </div>
-      <p className="mt-2 text-sm text-slate-500">Showing: {MODE_LABEL[mode]} {noun}</p>
     </div>
   )
 }
 
 export function AppHeader({ page, showGreeting = true, children }: { page: string; showGreeting?: boolean; children?: ReactNode }) {
   const { profile } = useSession()
-  const [sos, setSos] = useState(false)
-  const [notes] = useLoad(() => api.listNotifications(), [])
-  const unread = notes?.filter((n) => !n.read).length ?? 0
   return (
-    <header className="border-b border-slate-200 bg-white px-4 pb-4 pt-4">
-      <div className="flex items-center gap-3">
-        <img src="/logo.jpeg" alt="" className="h-12 w-12 shrink-0 rounded-2xl object-cover shadow-md ring-1 ring-gold-300" />
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-[17px] font-extrabold leading-tight text-navy-900">Leaders</p>
-          <p className="truncate text-xs text-slate-500">{page}</p>
-        </div>
-        <Link to="/wallet" className="icon-btn !w-auto shrink-0 gap-1 px-2.5 text-sm font-bold text-gold-700" aria-label="Points and wallet">🪙 {profile?.points ?? 0}</Link>
-        <button className="icon-btn !text-sm font-black text-red-600" onClick={() => setSos(true)} aria-label="SOS support">SOS</button>
-        <Link to="/notifications" className="icon-btn relative" aria-label="Notifications">
-          🔔
-          {unread > 0 && <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">{unread}</span>}
-        </Link>
-      </div>
-      {showGreeting && (
-        <div className="mt-3 flex items-end justify-between">
-          <div>
-            <p className="text-sm text-slate-500">Hello 👋</p>
-            <p className="text-xl font-extrabold">{profile?.full_name || 'Partner'}</p>
+    <header>
+      <BrandHeader title={page} />
+      {(showGreeting || children) && (
+        <div className="relative -mt-9 px-4">
+          <div className="rounded-[28px] bg-white p-4 shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
+            {showGreeting && (
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-600">Hello 👋</p>
+                  <p className="truncate font-display text-xl font-extrabold text-[#0f1b4d]">{profile?.full_name || 'Partner'}</p>
+                </div>
+                <PartnerIdChip />
+              </div>
+            )}
+            {children && <div className={showGreeting ? 'mt-4' : ''}>{children}</div>}
           </div>
-          <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--accent-text)]">
-            {profile?.role === 'admin' ? 'Admin' : 'Partner'} • {profile?.referral_code}
-          </span>
         </div>
       )}
-      {children && <div className="mt-4">{children}</div>}
-      <SosSheet open={sos} onClose={() => setSos(false)} />
     </header>
+  )
+}
+
+export function PartnerIdChip() {
+  const { profile } = useSession()
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-slate-800 shadow-sm">
+      <IconIdCard size={16} className="text-slate-600" />
+      {profile?.role === 'admin' ? 'Admin ID' : 'Partner ID'}: <b className="font-extrabold">{profile?.referral_code}</b>
+    </span>
   )
 }
 
@@ -133,24 +172,31 @@ export function SubHeader({ eyebrow, title, right }: { eyebrow?: string; title: 
 }
 
 const TABS = [
-  { to: '/', icon: '🏠', label: 'Home', end: true },
-  { to: '/orders', icon: '🧾', label: 'Orders' },
-  { to: '/team', icon: '👥', label: 'Team' },
-  { to: '/learn', icon: '🎓', label: 'Learn' },
-  { to: '/profile', icon: '👤', label: 'Profile' },
+  { to: '/', label: 'Home', Icon: IconHome, IconOn: IconHomeFill, match: (p: string) => p === '/' },
+  { to: '/products', label: 'Products', Icon: IconLayers, IconOn: IconLayers, match: (p: string) => p.startsWith('/product') },
+  { to: '/orders', label: 'Orders', Icon: IconClipboard, IconOn: IconClipboard, match: (p: string) => p.startsWith('/orders') },
+  { to: '/learn', label: 'Learn', Icon: IconPlay, IconOn: IconPlay, match: (p: string) => p.startsWith('/learn') },
+  { to: '/more', label: 'More', Icon: IconGrid, IconOn: IconGridFill, match: (p: string) => ['/more', '/profile', '/team', '/wallet', '/notifications', '/kit', '/admin'].some((r) => p.startsWith(r)) },
 ]
 
 export function BottomNav() {
+  const { pathname } = useLocation()
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center">
-      <div className="grid w-full max-w-md grid-cols-5 gap-1 border-t border-slate-200 bg-white/95 px-2 pt-2 pb-safe backdrop-blur">
-        {TABS.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end}
-            className={({ isActive }) => `flex flex-col items-center gap-0.5 rounded-2xl py-1.5 text-xs font-bold transition ${isActive ? 'bg-[var(--accent-soft)] text-[var(--accent-text)]' : 'text-slate-500'}`}>
-            <span className="text-xl leading-none">{t.icon}</span>
-            {t.label}
-          </NavLink>
-        ))}
+      <div className="grid w-full max-w-md grid-cols-5 gap-1 rounded-t-[28px] bg-white px-3 pt-2.5 pb-safe shadow-[0_-6px_24px_rgba(15,23,42,0.08)]">
+        {TABS.map(({ to, label, Icon, IconOn, match }) => {
+          const on = match(pathname)
+          const I = on ? IconOn : Icon
+          return (
+            <Link key={to} to={to} aria-current={on ? 'page' : undefined}
+              className={`flex flex-col items-center gap-1 rounded-[20px] py-2 text-[13px] font-semibold transition active:scale-95 ${on
+                ? 'bg-gradient-to-b from-[#2f5be6] to-[#1b3fc2] text-white shadow-[0_6px_16px_rgba(35,71,201,0.4)]'
+                : 'text-slate-700'}`}>
+              <I size={24} />
+              {label}
+            </Link>
+          )
+        })}
       </div>
     </nav>
   )
@@ -158,7 +204,7 @@ export function BottomNav() {
 
 export function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="mx-auto min-h-screen max-w-md bg-slate-50 pb-28 shadow-sm">
+    <div className="mx-auto min-h-screen max-w-md bg-[#f3f6fc] pb-28 shadow-sm">
       {children}
       <BottomNav />
     </div>
