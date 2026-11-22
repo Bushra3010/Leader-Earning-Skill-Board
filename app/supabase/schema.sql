@@ -390,5 +390,9 @@ create policy "settings read" on public.app_settings for select using (true);
 drop policy if exists "settings admin" on public.app_settings;
 create policy "settings admin" on public.app_settings for update using (public.is_admin());
 
--- To make yourself admin after signing up once:
+-- To make yourself admin after signing up once (the set_config line is required,
+-- otherwise profiles_protect silently keeps the old role):
+--   begin;
+--   select set_config('app.trusted', 'on', true);
 --   update public.profiles set role = 'admin' where email = 'you@example.com';
+--   commit;

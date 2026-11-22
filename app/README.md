@@ -18,8 +18,12 @@ Without Supabase keys the app runs in **demo mode**: data is saved only in that 
 3. Copy `.env.example` to `.env.local` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (from **Project Settings → API**).
 4. Restart `npm run dev`, register your account, then make yourself admin:
    ```sql
+   begin;
+   select set_config('app.trusted', 'on', true);
    update public.profiles set role = 'admin' where email = 'you@example.com';
+   commit;
    ```
+   The `set_config` line is required: a trigger on `profiles` blocks role changes from anyone who isn't already an admin, and in the SQL Editor that includes you. Without it, the update silently does nothing.
 5. In **Authentication → URL Configuration**, set the Site URL to your domain.
 
 ## Screens
