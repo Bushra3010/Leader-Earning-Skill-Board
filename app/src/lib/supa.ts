@@ -23,7 +23,7 @@ async function uid() {
   return data.session?.user.id ?? null
 }
 
-const normProduct = (p: Product): Product => ({ ...p, price: Number(p.price), commission_pct: Number(p.commission_pct), features: p.features ?? [] })
+const normProduct = (p: Product): Product => ({ ...p, price: Number(p.price), commission_pct: Number(p.commission_pct), features: p.features ?? [], mrp: p.mrp == null ? null : Number(p.mrp) })
 
 export const supabaseApi: Api = {
   isDemo: false,
@@ -101,6 +101,18 @@ export const supabaseApi: Api = {
   async listTeam() {
     return check(await supabase.from('my_team').select('*').order('created_at', { ascending: false }))
   },
+  async teamStats() {
+    const r = await supabase.rpc('my_team_stats')
+    if (r.error && /my_team_stats/.test(r.error.message)) throw new Error('Team snapshot needs a database update (see supabase/migrations).')
+    const d = check(r) ?? {}
+    return { direct: Number(d.direct ?? 0), downline: Number(d.downline ?? 0), orders_month: Number(d.orders_month ?? 0),
+      sales_month: Number(d.sales_month ?? 0), last_order: d.last_order ?? null }
+  },
+  async leaderboard(scope) {
+    const r = await supabase.rpc('leaderboard', { p_scope: scope })
+    if (r.error && /leaderboard/.test(r.error.message)) throw new Error('Leaderboard needs a database update (see supabase/migrations).')
+    return (check(r) ?? []).map((x: { rank: number; sales: number }) => ({ ...x, rank: Number(x.rank), sales: Number(x.sales) }))
+  },
   async listNotifications() {
     const id = await uid()
     const list = check(await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50)) as AppNotification[]
@@ -159,8 +171,9 @@ export const supabaseApi: Api = {
   },
   async adminSaveProduct(p) {
     const { id, ...rest } = p
-    if (id) check(await supabase.from('products').update(rest).eq('id', id))
-    else check(await supabase.from('products').insert(rest))
+    const r = id ? await supabase.from('products').update(rest).eq('id', id) : await supabase.from('products').insert(rest)
+    if (r.error && /image_url|mrp/.test(r.error.message)) throw new Error('Photo and MRP need a database update first (supabase/migrations/20261124_leaderboard_team_products.sql).')
+    check(r)
   },
   async adminBroadcast(title, body) {
     check(await supabase.from('notifications').insert({ title, body, user_id: null }))

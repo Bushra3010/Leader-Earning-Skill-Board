@@ -203,7 +203,40 @@ export const demoApi: Api = {
   async listTeam() {
     const s = need(); const db = load()
     return delay(db.profiles.filter((p) => p.referred_by === s).map((p) => ({ id: p.id, full_name: p.full_name, city: p.city, created_at: p.created_at,
-      paid_sales: db.orders.filter((o) => o.partner_id === p.id && o.status === 'paid').length })))
+      paid_sales: db.orders.filter((o) => o.partner_id === p.id && o.status === 'paid').length,
+      last_sale_at: db.orders.filter((o) => o.partner_id === p.id && o.status === 'paid').map((o) => o.created_at).sort().pop() ?? null })))
+  },
+  async teamStats() {
+    const s = need(); const db = load()
+    const levels = new Map<string, number>()
+    let frontier = [s]
+    for (let lvl = 1; lvl <= 10 && frontier.length; lvl++) {
+      frontier = db.profiles.filter((p) => p.referred_by && frontier.includes(p.referred_by) && !levels.has(p.id)).map((p) => p.id)
+      frontier.forEach((id) => levels.set(id, lvl))
+    }
+    const ids = [...levels.keys()]
+    const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0)
+    const team = db.orders.filter((o) => o.partner_id && ids.includes(o.partner_id))
+    const thisMonth = team.filter((o) => new Date(o.created_at) >= month)
+    return delay({
+      direct: [...levels.values()].filter((l) => l === 1).length, downline: ids.length, orders_month: thisMonth.length,
+      sales_month: thisMonth.filter((o) => o.status === 'paid').reduce((a, o) => a + o.amount, 0),
+      last_order: team.map((o) => o.created_at).sort().pop() ?? null,
+    })
+  },
+  async leaderboard(scope) {
+    const s = need(); const db = load()
+    const month = new Date(); month.setDate(1); month.setHours(0, 0, 0, 0)
+    const myCity = (db.profiles.find((p) => p.id === s)?.city ?? '').trim().toLowerCase()
+    const rows = db.profiles
+      .filter((p) => scope !== 'city' || (p.city ?? '').trim().toLowerCase() === myCity)
+      .map((p) => ({ partner_id: p.id, full_name: p.full_name, city: p.city, is_me: p.id === s,
+        sales: db.orders.filter((o) => o.partner_id === p.id && o.status === 'paid' && new Date(o.created_at) >= month).reduce((a, o) => a + o.amount, 0) }))
+      .filter((r) => r.sales > 0 || r.is_me)
+      .sort((a, b) => b.sales - a.sales || a.full_name.localeCompare(b.full_name))
+    let rank = 0, prev = -1
+    const ranked = rows.map((r, i) => { if (r.sales !== prev) { rank = i + 1; prev = r.sales } return { ...r, rank } })
+    return delay(ranked.filter((r) => r.rank <= 50 || r.is_me))
   },
   async listNotifications() {
     const s = need(); const db = load()

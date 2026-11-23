@@ -176,7 +176,7 @@ const TABS = [
   { to: '/products', label: 'Products', Icon: IconLayers, IconOn: IconLayers, match: (p: string) => p.startsWith('/product') },
   { to: '/orders', label: 'Orders', Icon: IconClipboard, IconOn: IconClipboard, match: (p: string) => p.startsWith('/orders') },
   { to: '/learn', label: 'Learn', Icon: IconPlay, IconOn: IconPlay, match: (p: string) => p.startsWith('/learn') },
-  { to: '/more', label: 'More', Icon: IconGrid, IconOn: IconGridFill, match: (p: string) => ['/more', '/profile', '/team', '/wallet', '/notifications', '/kit', '/admin'].some((r) => p.startsWith(r)) },
+  { to: '/more', label: 'More', Icon: IconGrid, IconOn: IconGridFill, match: (p: string) => ['/more', '/profile', '/team', '/wallet', '/notifications', '/kit', '/admin', '/leaderboard', '/posters', '/cards'].some((r) => p.startsWith(r)) },
 ]
 
 export function BottomNav() {

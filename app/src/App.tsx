@@ -18,6 +18,9 @@ import Privacy from './pages/Privacy'
 import Admin from './pages/Admin'
 import Products from './pages/Products'
 import More from './pages/More'
+import Leaderboard from './pages/Leaderboard'
+import Posters from './pages/Posters'
+import Cards from './pages/Cards'
 
 function Protected({ children, admin }: { children: ReactNode; admin?: boolean }) {
   const { loading, userId, profile } = useSession()
@@ -46,6 +49,9 @@ export default function App() {
       <Route path="/wallet" element={<Protected><Wallet /></Protected>} />
       <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
       <Route path="/kit" element={<Protected><PartnerKit /></Protected>} />
+      <Route path="/leaderboard" element={<Protected><Leaderboard /></Protected>} />
+      <Route path="/posters" element={<Protected><Posters /></Protected>} />
+      <Route path="/cards" element={<Protected><Cards /></Protected>} />
       <Route path="/admin" element={<Protected admin><Admin /></Protected>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

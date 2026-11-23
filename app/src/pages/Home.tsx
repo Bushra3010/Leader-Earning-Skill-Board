@@ -5,6 +5,7 @@ import { IconArrowRight, IconBolt, IconCart, IconCapFill, IconChart, IconHand, I
 import { api, inr, walletBalance } from '../lib/api'
 import { useLoad, useSession } from '../lib/session'
 import type { Product } from '../lib/types'
+import { LeaderboardCard } from './Leaderboard'
 
 export default function Home() {
   const { mode, profile, settings } = useSession()
@@ -97,6 +98,14 @@ export default function Home() {
             <Action to="/team" label="My Team" icon={<IconUsers size={30} />} cls="from-emerald-100 to-emerald-50 text-emerald-600" />
           </div>
         </section>
+
+        <LeaderboardCard />
+
+        <Link to="/posters" className="flex items-center gap-3 rounded-[26px] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-pink-50 text-2xl">🖼️</span>
+          <span className="min-w-0 flex-1"><b className="block text-[16.5px] text-[#0f1b4d]">Ready-to-Share Posters</b><span className="text-[13px] text-slate-600">Posters with your name, number &amp; code</span></span>
+          <IconArrowRight size={20} className="text-slate-500" />
+        </Link>
 
         <p className="px-2 pb-2 text-center text-xs text-slate-400">You earn only from sales made through your own link. Commission % is fixed per product and shown before you share.</p>
       </main>

@@ -164,6 +164,10 @@ function ProductsAdmin() {
               <label className="text-xs font-semibold text-slate-500">Commission %<input className="input mt-1" inputMode="decimal" value={edit.commission_pct} onChange={(e) => set('commission_pct', Number(e.target.value) || 0)} /></label>
               <label className="text-xs font-semibold text-slate-500">Duration<input className="input mt-1" value={edit.duration ?? ''} onChange={(e) => set('duration', e.target.value)} /></label>
             </div>
+            <div className="grid grid-cols-[1fr_110px] gap-2">
+              <label className="text-xs font-semibold text-slate-500">Photo URL (optional)<input className="input mt-1" type="url" placeholder="https://…" value={edit.image_url ?? ''} onChange={(e) => set('image_url', e.target.value.trim() || null)} /></label>
+              <label className="text-xs font-semibold text-slate-500">MRP ₹ (for % OFF)<input className="input mt-1" inputMode="numeric" value={edit.mrp ?? ''} onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); set('mrp', v ? Number(v) : null) }} /></label>
+            </div>
             <input className="input" placeholder="Best for" value={edit.best_for ?? ''} onChange={(e) => set('best_for', e.target.value)} />
             <textarea className="input min-h-[70px]" placeholder="Description" value={edit.description ?? ''} onChange={(e) => set('description', e.target.value)} />
             <textarea className="input min-h-[70px]" placeholder="Features (one per line)" value={(edit.features ?? []).join('\n')} onChange={(e) => set('features', e.target.value.split('\n').filter(Boolean))} />

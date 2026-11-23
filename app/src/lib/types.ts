@@ -43,6 +43,10 @@ export interface Product {
   banner_gradient: string | null
   active: boolean
   sort_order: number
+  /** Optional: photo shown on product cards. */
+  image_url?: string | null
+  /** Optional: original price; when higher than price a % OFF badge is shown. */
+  mrp?: number | null
 }
 
 export interface PartnerOrder {
@@ -107,6 +111,24 @@ export interface TeamMember {
   city: string | null
   created_at: string
   paid_sales: number
+  last_sale_at?: string | null
+}
+
+export interface LeaderRow {
+  rank: number
+  partner_id: string
+  full_name: string
+  city: string | null
+  sales: number
+  is_me: boolean
+}
+
+export interface TeamStats {
+  direct: number
+  downline: number
+  orders_month: number
+  sales_month: number
+  last_order: string | null
 }
 
 export interface Lesson {

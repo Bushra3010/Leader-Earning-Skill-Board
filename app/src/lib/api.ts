@@ -1,6 +1,6 @@
 import type {
   AdminOrder, AppNotification, DeliveryStatus, Lesson, OrderStatus, PartnerOrder, Product, Profile,
-  Settings, SignUpInput, TeamMember, WalletTx, Withdrawal,
+  Settings, SignUpInput, TeamMember, WalletTx, Withdrawal, LeaderRow, TeamStats,
 } from './types'
 import { demoApi } from './demo'
 import { supabaseApi } from './supa'
@@ -25,6 +25,8 @@ export interface Api {
   listWithdrawals(): Promise<Withdrawal[]>
   requestWithdrawal(amount: number): Promise<void>
   listTeam(): Promise<TeamMember[]>
+  teamStats(): Promise<TeamStats>
+  leaderboard(scope: 'city' | 'india'): Promise<LeaderRow[]>
   listNotifications(): Promise<AppNotification[]>
   markNotificationsRead(ids: string[]): Promise<void>
   createTicket(subject: string, message: string): Promise<void>

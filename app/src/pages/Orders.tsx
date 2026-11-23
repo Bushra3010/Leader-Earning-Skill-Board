@@ -48,10 +48,10 @@ export default function Orders() {
             <button className="btn-outline !px-3 !py-2" onClick={() => setFilters(true)}>⚙️ Filters{(status !== 'all' || range !== 'all') && ' •'}</button>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Tile icon="📈" label="Total Sales" value={inr(paid.reduce((s, o) => s + Number(o.amount), 0))} sub="Paid / captured" />
-            <Tile icon="👥" label="Total Enrolled" value={String(paid.length)} sub="Your code based" />
-            <Tile icon="⚠️" label="Alerts" value={String(scoped.filter((o) => ALERT.includes(o.status)).length)} sub="Cancel / Halt / Failed" />
-            <Tile icon="📦" label="Delivered" value={String(scoped.filter((o) => o.delivery === 'delivered').length)} sub={`of ${scoped.filter((o) => o.delivery !== 'not_applicable').length} shipments`} />
+            <Tile tone="gold" icon="📈" label="Total Sales" value={inr(paid.reduce((s, o) => s + Number(o.amount), 0))} sub="Paid / captured" />
+            <Tile tone="blue" icon="👥" label="Total Enrolled" value={String(paid.length)} sub="Your code based" />
+            <Tile tone="pink" icon="⚠️" label="Alerts" value={String(scoped.filter((o) => ALERT.includes(o.status)).length)} sub="Cancel / Halt / Failed" />
+            <Tile tone="green" icon="📦" label="Delivered" value={String(scoped.filter((o) => o.delivery === 'delivered').length)} sub={`of ${scoped.filter((o) => o.delivery !== 'not_applicable').length} shipments`} />
           </div>
         </section>
 
@@ -60,11 +60,11 @@ export default function Orders() {
           <p className="mb-3 text-sm text-slate-500">Name / phone / order id / product</p>
           <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); setApplied(q) }}>
             <input className="input" placeholder="Search…" value={q} onChange={(e) => { setQ(e.target.value); if (!e.target.value) setApplied('') }} />
-            <button className="btn-primary shrink-0 !px-6">Search</button>
+            <button className="btn shrink-0 bg-gradient-to-b from-[#e2b84a] to-[#c9962a] !px-6 text-white shadow-[0_6px_14px_rgba(201,150,42,0.35)]">🔍 Search</button>
           </form>
           <div className="no-scrollbar -mx-1 mt-3 flex gap-2 overflow-x-auto px-1">
             {(['orders', 'enrolled', 'subscriptions', 'delivery'] as Tab[]).map((t) => (
-              <button key={t} onClick={() => setTab(t)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize ${tab === t ? 'bg-gradient-to-r from-[var(--accent-from)] to-[var(--accent-to)] text-white' : 'bg-slate-100 text-slate-600'}`}>{t}</button>
+              <button key={t} onClick={() => setTab(t)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize ${tab === t ? 'bg-gradient-to-b from-[#d9ad42] to-[#b8862a] text-white shadow' : 'bg-slate-100 text-slate-700'}`}>{t}</button>
             ))}
           </div>
           <div className="mt-4 space-y-3">
@@ -94,12 +94,19 @@ export default function Orders() {
   )
 }
 
-function Tile({ icon, label, value, sub }: { icon: string; label: string; value: string; sub: string }) {
+const TILE = {
+  gold: 'border-[#a8842f] bg-gradient-to-br from-[#e6c36a] to-[#c9a04a]',
+  blue: 'border-[#3f62a8] bg-gradient-to-br from-[#8fb0e6] to-[#5f86cf]',
+  pink: 'border-[#d77f8f] bg-gradient-to-br from-[#f6c3cb] to-[#eba3b0]',
+  green: 'border-[#6fa886] bg-gradient-to-br from-[#bfe3cc] to-[#93cfa9]',
+} as const
+
+function Tile({ tone, icon, label, value, sub }: { tone: keyof typeof TILE; icon: string; label: string; value: string; sub: string }) {
   return (
-    <div className="rounded-3xl border border-slate-200 p-3.5">
-      <div className="flex items-center gap-2"><span className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100">{icon}</span><span className="text-sm font-bold text-slate-500">{label}</span></div>
+    <div className={`rounded-3xl border-2 p-3.5 text-slate-900 shadow-[0_6px_16px_rgba(15,23,42,0.12)] ${TILE[tone]}`}>
+      <div className="flex items-center gap-2"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/60">{icon}</span><span className="text-sm font-extrabold leading-tight text-slate-800/80">{label}</span></div>
       <p className="mt-2 text-2xl font-extrabold">{value}</p>
-      <p className="text-xs text-slate-500">{sub}</p>
+      <p className="text-xs text-slate-800/80">{sub}</p>
     </div>
   )
 }

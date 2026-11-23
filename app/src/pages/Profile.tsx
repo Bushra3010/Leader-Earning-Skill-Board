@@ -30,6 +30,7 @@ export default function Profile() {
 
         <section className="card divide-y divide-slate-100">
           <Row icon="👛" label="My Wallet & payouts" to="/wallet" />
+          <Row icon="🪪" label="My ID card, visiting card & certificate" to="/cards" />
           <Row icon="✏️" label="Edit personal details" onClick={() => setSheet('details')} />
           <Row icon="🏦" label="Payout & KYC details" hint={kyc} onClick={() => setSheet('payout')} />
           <Row icon="📊" label="Commission rates" onClick={() => setSheet('rates')} />
