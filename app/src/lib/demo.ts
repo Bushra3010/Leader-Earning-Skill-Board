@@ -32,7 +32,7 @@ const delay = <T,>(v: T) => new Promise<T>((r) => setTimeout(() => r(v), 120))
 
 function blankProfile(id: string, email: string, name: string): Profile {
   return {
-    id, email, full_name: name, phone: null, city: null, referral_code: code(), referred_by: null, role: 'partner',
+    id, email, full_name: name, phone: null, city: null, referral_code: code(), referred_by: null, role: 'associate', approval_status: 'pending', leaderboard_pin: null,
     kit_status: 'not_paid', points: 0, upi_id: null, bank_account_name: null, bank_account_number: null, bank_ifsc: null,
     pan_number: null, kyc_status: 'not_submitted', created_at: new Date().toISOString(),
   }
@@ -40,10 +40,10 @@ function blankProfile(id: string, email: string, name: string): Profile {
 
 function seed(): DB {
   const demoId = 'demo-user'
-  const me: Profile = { ...blankProfile(demoId, 'demo@leaders.app', 'Demo Partner'), role: 'admin', referral_code: 'LEDEMO1', phone: '+91 98765 43210', city: 'Jaipur', points: 120, created_at: daysAgo(40) }
+  const me: Profile = { ...blankProfile(demoId, 'demo@leaders.app', 'Demo Partner'), role: 'admin', approval_status: 'approved', referral_code: 'LEDEMO1', phone: '+91 98765 43210', city: 'Jaipur', points: 120, created_at: daysAgo(40) }
   const team: Profile[] = [
-    { ...blankProfile('tm1', 'a@x.in', 'Ritika Sharma'), referred_by: demoId, city: 'Ajmer', created_at: daysAgo(20) },
-    { ...blankProfile('tm2', 'b@x.in', 'Aman Verma'), referred_by: demoId, city: 'Kota', created_at: daysAgo(9) },
+    { ...blankProfile('tm1', 'a@x.in', 'Ritika Sharma'), approval_status: 'approved', role: 'partner', kit_status: 'paid', referred_by: demoId, city: 'Ajmer', created_at: daysAgo(20) },
+    { ...blankProfile('tm2', 'b@x.in', 'Aman Verma'), approval_status: 'approved', referred_by: demoId, city: 'Kota', created_at: daysAgo(9) },
   ]
   const buyers = [
     ['Priya Mehta', '+919812345671'], ['Rahul Jain', '+919823456782'], ['Sneha Gupta', '+919834567893'],
@@ -230,12 +230,12 @@ export const demoApi: Api = {
     const myCity = (db.profiles.find((p) => p.id === s)?.city ?? '').trim().toLowerCase()
     const rows = db.profiles
       .filter((p) => scope !== 'city' || (p.city ?? '').trim().toLowerCase() === myCity)
-      .map((p) => ({ partner_id: p.id, full_name: p.full_name, city: p.city, is_me: p.id === s,
+      .filter((p) => (p.approval_status ?? 'approved') === 'approved')
+      .map((p) => ({ partner_id: p.id, full_name: p.full_name, city: p.city, is_me: p.id === s, pin: p.leaderboard_pin ?? null, pinned: p.leaderboard_pin != null,
         sales: db.orders.filter((o) => o.partner_id === p.id && o.status === 'paid' && new Date(o.created_at) >= month).reduce((a, o) => a + o.amount, 0) }))
-      .filter((r) => r.sales > 0 || r.is_me)
-      .sort((a, b) => b.sales - a.sales || a.full_name.localeCompare(b.full_name))
-    let rank = 0, prev = -1
-    const ranked = rows.map((r, i) => { if (r.sales !== prev) { rank = i + 1; prev = r.sales } return { ...r, rank } })
+      .filter((r) => r.sales > 0 || r.is_me || r.pinned)
+      .sort((a, b) => (a.pin ?? 99) - (b.pin ?? 99) || b.sales - a.sales || a.full_name.localeCompare(b.full_name))
+    const ranked = rows.map((r, i) => ({ ...r, rank: i + 1 }))
     return delay(ranked.filter((r) => r.rank <= 50 || r.is_me))
   },
   async listNotifications() {
@@ -310,13 +310,44 @@ export const demoApi: Api = {
     })
   },
   async adminListPartners() { return delay(load().profiles.sort((a, b) => b.created_at.localeCompare(a.created_at))) },
-  async adminUpdatePartner(id, patch) { mut((db) => Object.assign(db.profiles.find((x) => x.id === id)!, patch)) },
+  async adminUpdatePartner(id, patch) {
+    mut((db) => {
+      const p = db.profiles.find((x) => x.id === id)!
+      const wasPaid = p.kit_status === 'paid'
+      Object.assign(p, patch)
+      if (!wasPaid && p.kit_status === 'paid' && p.role === 'associate') p.role = 'partner'
+    })
+  },
   async adminSaveProduct(p) {
     mut((db) => {
       const ex = p.id ? db.products.find((x) => x.id === p.id) : undefined
       if (ex) Object.assign(ex, p)
       else db.products.push({ ...SEED_PRODUCTS[0], is_featured: false, ...p, id: 'prod-' + rid(), sort_order: db.products.length } as Product)
     })
+  },
+  async adminListMembers() {
+    const db = load()
+    const sum = (a: number[]) => a.reduce((x, y) => x + y, 0)
+    return delay(db.profiles.map((p) => {
+      const up = db.profiles.find((x) => x.id === p.referred_by)
+      const paid = db.orders.filter((o) => o.partner_id === p.id && o.status === 'paid')
+      const tx = db.wallet.filter((w) => w.partner_id === p.id)
+      const wd = db.withdrawals.filter((w) => w.partner_id === p.id)
+      return {
+        id: p.id, full_name: p.full_name, email: p.email, phone: p.phone, city: p.city, referral_code: p.referral_code, role: p.role,
+        kit_status: p.kit_status, kyc_status: p.kyc_status, approval_status: p.approval_status ?? 'approved', leaderboard_pin: p.leaderboard_pin ?? null,
+        created_at: p.created_at, upline_name: up?.full_name ?? null, upline_code: up?.referral_code ?? null,
+        team_size: db.profiles.filter((x) => x.referred_by === p.id).length, paid_orders: paid.length, sales_amount: sum(paid.map((o) => o.amount)),
+        incentive_earned: sum(tx.filter((w) => w.kind !== 'withdrawal').map((w) => w.amount)),
+        paid_out: sum(wd.filter((w) => w.status === 'paid').map((w) => w.amount)),
+        pending_payout: sum(wd.filter((w) => w.status === 'requested' || w.status === 'approved').map((w) => w.amount)),
+        wallet_balance: sum(tx.map((w) => w.amount)),
+      }
+    }).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+  },
+  async adminUploadProductImage(file) {
+    if (file.size > 1_500_000) throw new Error('In demo mode pictures must be under 1.5 MB')
+    return new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = () => rej(new Error('Could not read file')); r.readAsDataURL(file) })
   },
   async adminBroadcast(title, body) { mut((db) => db.notifications.push({ id: rid(), user_id: null, title, body, created_at: new Date().toISOString() })) },
   async adminSaveSettings(s) { mut((db) => { db.settings = s }) },

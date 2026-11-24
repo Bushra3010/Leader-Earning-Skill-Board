@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom'
 import { copyText, ShareSheet, Shell, Spinner, SubHeader } from '../components/ui'
 import { api, inr, partnerLink } from '../lib/api'
 import { useLoad, useSession } from '../lib/session'
-import { MODE_LABEL } from '../lib/types'
+import { CAT_LABEL, categoryOf } from '../lib/category'
 
 export default function ProductDetail() {
   const { slug = '' } = useParams()
@@ -15,11 +15,11 @@ export default function ProductDetail() {
   const earn = Math.round(p.price * p.commission_pct / 100)
   return (
     <Shell>
-      <SubHeader eyebrow={MODE_LABEL[p.mode]} title={p.title} />
+      <SubHeader eyebrow={CAT_LABEL[categoryOf(p)]} title={p.title} />
       <main className="space-y-4 p-4">
         <section className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${p.banner_gradient ?? 'from-navy-900 to-navy-600'} p-5 text-white`}>
           <span className="absolute right-4 top-4 text-6xl">{p.emoji}</span>
-          <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">{MODE_LABEL[p.mode]}</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">{CAT_LABEL[categoryOf(p)]}</p>
           <h2 className="mt-1 max-w-[75%] font-display text-2xl font-extrabold leading-tight">{p.title}</h2>
           <p className="mt-1 text-sm text-white/80">{p.subtitle}</p>
           <div className="mt-4 flex flex-wrap gap-2">

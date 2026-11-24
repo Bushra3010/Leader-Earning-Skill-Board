@@ -1,9 +1,10 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { IconBell, IconBook, IconCapFill, IconClipboard, IconGrid, IconGridFill, IconHome, IconHomeFill, IconHorse, IconIdCard, IconLayers, IconPlay, IconUser } from './icons'
+import { IconBell, IconClipboard, IconGrid, IconGridFill, IconHome, IconHomeFill, IconIdCard, IconLayers, IconPlay, IconUser } from './icons'
 import { api, partnerLink } from '../lib/api'
-import { useLoad, useSession } from '../lib/session'
-import { MODE_LABEL, type Mode, type Product } from '../lib/types'
+import { sharePosterWithText } from '../lib/canvasCards'
+import { useCan, useLoad, useSession } from '../lib/session'
+import { ROLE_LABEL, type Product } from '../lib/types'
 
 export function Spinner({ label = 'Loading…' }: { label?: string }) {
   return (
@@ -60,30 +61,6 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         </div>
         {children}
       </div>
-    </div>
-  )
-}
-
-const MODE_ICON: Record<Mode, (p: { size?: number }) => JSX.Element> = { pre_school: IconHorse, pro_school: IconCapFill, school: IconBook }
-
-export function ModeTabs(_props: { noun?: string }) {
-  const { mode, setMode } = useSession()
-  const modes: Mode[] = ['pre_school', 'pro_school', 'school']
-  return (
-    <div className="grid grid-cols-3 gap-3">
-      {modes.map((m) => {
-        const Icon = MODE_ICON[m]
-        const on = m === mode
-        return (
-          <button key={m} onClick={() => setMode(m)} aria-pressed={on}
-            className={`flex flex-col items-center justify-center gap-1.5 rounded-[22px] py-3.5 text-[15px] font-extrabold transition active:scale-[0.97] ${on
-              ? 'bg-gradient-to-b from-[#2f5be6] to-[#1b3fc2] text-white shadow-[0_8px_20px_rgba(35,71,201,0.35)]'
-              : 'border border-slate-200/80 bg-white text-slate-900 shadow-[0_4px_14px_rgba(15,23,42,0.06)]'}`}>
-            <span className={on ? 'text-white' : 'text-[#2347c9]'}><Icon size={30} /></span>
-            {MODE_LABEL[m]}
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -152,7 +129,7 @@ export function PartnerIdChip() {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-slate-800 shadow-sm">
       <IconIdCard size={16} className="text-slate-600" />
-      {profile?.role === 'admin' ? 'Admin ID' : 'Partner ID'}: <b className="font-extrabold">{profile?.referral_code}</b>
+      {ROLE_LABEL[profile?.role ?? 'associate']} ID: <b className="font-extrabold">{profile?.referral_code}</b>
     </span>
   )
 }
@@ -181,10 +158,12 @@ const TABS = [
 
 export function BottomNav() {
   const { pathname } = useLocation()
+  const can = useCan()
+  const tabs = TABS.filter((t) => t.to !== '/learn' || can('learn'))
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 flex justify-center">
-      <div className="grid w-full max-w-md grid-cols-5 gap-1 rounded-t-[28px] bg-white px-3 pt-2.5 pb-safe shadow-[0_-6px_24px_rgba(15,23,42,0.08)]">
-        {TABS.map(({ to, label, Icon, IconOn, match }) => {
+      <div style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }} className="grid w-full max-w-md gap-1 rounded-t-[28px] bg-white px-3 pt-2.5 pb-safe shadow-[0_-6px_24px_rgba(15,23,42,0.08)]">
+        {tabs.map(({ to, label, Icon, IconOn, match }) => {
           const on = match(pathname)
           const I = on ? IconOn : Icon
           return (
@@ -225,16 +204,26 @@ export async function copyText(t: string) {
 
 export function shareMessage(p: Product, link: string) {
   const price = '₹' + p.price.toLocaleString('en-IN') + (p.billing === 'monthly' ? '/month' : '')
-  return `${p.pitch ?? p.title}\n\n${p.emoji} *${p.title}* — ${price}${p.duration ? ` • ${p.duration}` : ''}\n👉 ${link}`
+  const title = p.title.trim()
+  return `*Leaders Earning & Skill Board*\n\n${(p.pitch ?? title).trim()}\n\n${p.emoji} *${title}* — ${price}${p.duration?.trim() ? ` • ${p.duration.trim()}` : ''}\n👉 ${link}`
 }
 
 export function ShareSheet({ product, onClose }: { product: Product | null; onClose: () => void }) {
   const { profile, toast } = useSession()
+  const [busy, setBusy] = useState(false)
   if (!product || !profile) return null
   const link = partnerLink(product.slug, profile.referral_code)
   const msg = shareMessage(product, link)
   const enc = encodeURIComponent(msg)
   const native = typeof navigator !== 'undefined' && 'share' in navigator
+  const posterShare = async () => {
+    setBusy(true)
+    try {
+      const r = await sharePosterWithText(product, profile, link, msg)
+      if (r === 'fallback') { await copyText(msg); toast('Poster saved & message copied — attach the poster in WhatsApp and paste'); window.open(`https://wa.me/?text=${enc}`, '_blank') }
+    } catch { toast('Could not make the poster — sharing the link instead'); window.open(`https://wa.me/?text=${enc}`, '_blank') }
+    finally { setBusy(false) }
+  }
   return (
     <Sheet open onClose={onClose} title="Share & earn">
       <div className="mb-4 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
@@ -249,8 +238,12 @@ export function ShareSheet({ product, onClose }: { product: Product | null; onCl
         <input readOnly value={link} className="input !py-2.5 text-sm" onFocus={(e) => e.target.select()} />
         <button className="btn-soft shrink-0" onClick={async () => { await copyText(link); toast('Link copied') }}>Copy</button>
       </div>
+      <button className="btn mb-3 w-full bg-[#25D366] !py-3.5 text-white" disabled={busy} onClick={posterShare}>
+        {busy ? 'Making poster…' : '🖼️ Share poster + message (WhatsApp)'}
+      </button>
+      <p className="-mt-1 mb-4 text-center text-xs text-slate-500">Sends the product poster with your name, number and link, plus the message as its caption.</p>
       <div className="grid grid-cols-2 gap-3">
-        <a className="btn bg-[#25D366] text-white" href={`https://wa.me/?text=${enc}`} target="_blank" rel="noreferrer">WhatsApp</a>
+        <a className="btn bg-[#25D366]/90 text-white" href={`https://wa.me/?text=${enc}`} target="_blank" rel="noreferrer">WhatsApp text only</a>
         <button className="btn bg-gradient-to-r from-fuchsia-600 to-orange-500 text-white" onClick={async () => { await copyText(msg); toast('Caption copied — paste it in Instagram'); window.open('https://www.instagram.com/', '_blank') }}>Instagram</button>
         <a className="btn bg-sky-500 text-white" href={`https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(product.pitch ?? product.title)}`} target="_blank" rel="noreferrer">Telegram</a>
         <a className="btn bg-blue-600 text-white" href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`} target="_blank" rel="noreferrer">Facebook</a>

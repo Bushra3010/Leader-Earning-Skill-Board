@@ -25,7 +25,7 @@ export default function Register() {
   )
 
   return (
-    <AuthLayout title="Become a partner" sub="Free to join. You earn only when someone buys through your link.">
+    <AuthLayout title="Create your account" sub="Free to join. Your account is activated after our team approves it. You earn only when someone buys through your link.">
       <form className="space-y-3.5" onSubmit={async (e) => {
         e.preventDefault(); setErr(null)
         if (f.phone.replace(/\D/g, '').length < 10) return setErr('Enter a valid 10-digit mobile number')
@@ -41,7 +41,7 @@ export default function Register() {
         <div><label className="label" htmlFor="n">Full name</label><input id="n" className="input" required value={f.full_name} onChange={set('full_name')} /></div>
         <div className="grid grid-cols-2 gap-3">
           <div><label className="label" htmlFor="ph">Mobile</label><input id="ph" className="input" inputMode="tel" required placeholder="+91" value={f.phone} onChange={set('phone')} /></div>
-          <div><label className="label" htmlFor="c">City</label><input id="c" className="input" value={f.city} onChange={set('city')} /></div>
+          <div><label className="label" htmlFor="c">City</label><input id="c" className="input" required value={f.city} onChange={set('city')} /></div>
         </div>
         <div><label className="label" htmlFor="em">Email</label><input id="em" className="input" type="email" required autoComplete="email" value={f.email} onChange={set('email')} /></div>
         <div><label className="label" htmlFor="pw">Password</label><input id="pw" className="input" type="password" required autoComplete="new-password" value={f.password} onChange={set('password')} /></div>

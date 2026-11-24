@@ -1,4 +1,22 @@
 export type Mode = 'pre_school' | 'pro_school' | 'school'
+/** admin = runs the app • partner = paid the partner fee, can build a team • associate = free member, sells for themself */
+export type Role = 'admin' | 'partner' | 'associate'
+export const ROLE_LABEL: Record<Role, string> = { admin: 'Admin', partner: 'Partner', associate: 'Associate' }
+
+/** Menus the admin can switch on/off per member type (Admin → Settings). Admins always see everything. */
+export type Feature = 'team' | 'leaderboard' | 'posters' | 'cards' | 'learn'
+export const FEATURES: { id: Feature; label: string }[] = [
+  { id: 'team', label: 'My Team & invite link' },
+  { id: 'leaderboard', label: 'Leaderboard' },
+  { id: 'posters', label: 'Posters gallery' },
+  { id: 'cards', label: 'ID / visiting card & certificate' },
+  { id: 'learn', label: 'Learn' },
+]
+export type RoleFeatures = Record<'partner' | 'associate', Feature[]>
+export const DEFAULT_ROLE_FEATURES: RoleFeatures = {
+  partner: ['team', 'leaderboard', 'posters', 'cards', 'learn'],
+  associate: ['leaderboard', 'posters', 'cards', 'learn'],
+}
 export type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'halted' | 'failed' | 'refunded'
 export type DeliveryStatus = 'not_applicable' | 'pending' | 'shipped' | 'delivered'
 
@@ -10,7 +28,7 @@ export interface Profile {
   city: string | null
   referral_code: string
   referred_by: string | null
-  role: 'partner' | 'admin'
+  role: Role
   kit_status: 'not_paid' | 'pending' | 'paid'
   points: number
   upi_id: string | null
@@ -20,6 +38,10 @@ export interface Profile {
   pan_number: string | null
   kyc_status: 'not_submitted' | 'submitted' | 'verified' | 'rejected'
   created_at: string
+  /** New sign-ups wait for admin approval. Missing (before the DB update) = approved. */
+  approval_status?: 'pending' | 'approved' | 'rejected'
+  /** Admin-chosen leaderboard position (1 = top). */
+  leaderboard_pin?: number | null
 }
 
 export interface Product {
@@ -121,6 +143,31 @@ export interface LeaderRow {
   city: string | null
   sales: number
   is_me: boolean
+  pinned?: boolean
+}
+
+export interface MemberStat {
+  id: string
+  full_name: string
+  email: string | null
+  phone: string | null
+  city: string | null
+  referral_code: string
+  role: Role
+  kit_status: Profile['kit_status']
+  kyc_status: Profile['kyc_status']
+  approval_status: NonNullable<Profile['approval_status']>
+  leaderboard_pin: number | null
+  created_at: string
+  upline_name: string | null
+  upline_code: string | null
+  team_size: number
+  paid_orders: number
+  sales_amount: number
+  incentive_earned: number
+  paid_out: number
+  pending_payout: number
+  wallet_balance: number
 }
 
 export interface TeamStats {
@@ -149,6 +196,7 @@ export interface Settings {
   support_phone: string
   support_email: string
   whatsapp_number: string
+  role_features: RoleFeatures
 }
 
 export interface SignUpInput {
@@ -160,8 +208,3 @@ export interface SignUpInput {
   ref_code: string
 }
 
-export const MODE_LABEL: Record<Mode, string> = {
-  pre_school: 'Pre-School',
-  pro_school: 'Pro-School',
-  school: 'School',
-}

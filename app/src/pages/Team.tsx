@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { AppHeader, copyText, Empty, ErrorNote, Shell, Spinner } from '../components/ui'
 import { api, fmtDate, inr, PUBLIC_URL } from '../lib/api'
-import { useLoad, useSession } from '../lib/session'
+import { useCan, useLoad, useSession } from '../lib/session'
 import { Avatar } from './Leaderboard'
 
 type Filter = 'all' | 'active' | 'new'
@@ -10,6 +10,7 @@ const DAY = 86400000
 
 export default function Team() {
   const { profile, toast } = useSession()
+  const can = useCan()
   const [team, loading, , err] = useLoad(() => api.listTeam(), [])
   const [stats, , , statsErr] = useLoad(() => api.teamStats(), [])
   const [q, setQ] = useState('')
@@ -65,7 +66,7 @@ export default function Team() {
             <Tile icon="🧾" label="Orders" value={String(stats?.orders_month ?? '—')} sub="This month" />
             <Tile icon="₹" label="Sales" value={stats ? inr(stats.sales_month) : '—'} sub="Paid this month" />
             <Tile icon="🕒" label="Last Order" value={stats?.last_order ? fmtDate(stats.last_order) : '—'} sub="Across team" />
-            <Link to="/leaderboard" className="block"><Tile icon="🏆" label="Leaderboard" value="Open" sub="See top partners" /></Link>
+            {can('leaderboard') && <Link to="/leaderboard" className="block"><Tile icon="🏆" label="Leaderboard" value="Open" sub="See top partners" /></Link>}
           </div>
           <p className="mt-3 text-xs text-slate-500">Each partner earns only from sales made through their own link — there is no income from recruiting.</p>
         </section>

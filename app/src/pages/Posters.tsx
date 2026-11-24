@@ -3,16 +3,17 @@ import { ErrorNote, Sheet, Shell, Spinner, SubHeader } from '../components/ui'
 import { api, partnerLink } from '../lib/api'
 import { drawPoster, shareOrDownload } from '../lib/canvasCards'
 import { useLoad, useSession } from '../lib/session'
-import { MODE_LABEL, type Mode, type Product } from '../lib/types'
+import type { Product } from '../lib/types'
+import { CATS, categoryOf, type Cat } from '../lib/category'
 
 export default function Posters() {
   const { profile } = useSession()
   const [products, loading, , err] = useLoad(() => api.listProducts(), [])
-  const [mode, setMode] = useState<'all' | Mode>('all')
+  const [cat, setCat] = useState<'all' | Cat>('all')
   const [q, setQ] = useState('')
   const [preview, setPreview] = useState<{ p: Product; url: string; blob: Blob } | null>(null)
   const term = q.trim().toLowerCase()
-  const list = (products ?? []).filter((p) => p.active && (mode === 'all' || p.mode === mode) && (!term || p.title.toLowerCase().includes(term)))
+  const list = (products ?? []).filter((p) => p.active && (cat === 'all' || categoryOf(p) === cat) && (!term || p.title.toLowerCase().includes(term)))
 
   return (
     <Shell>
@@ -20,9 +21,9 @@ export default function Posters() {
       <main className="space-y-3 p-4">
         <p className="px-1 text-sm text-slate-600">Download or share posters — your name, number and code are printed on each one.</p>
         <input className="input" placeholder="Search poster title…" value={q} onChange={(e) => setQ(e.target.value)} />
-        <select className="input !w-auto" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-          <option value="all">All Modes</option>
-          {(Object.keys(MODE_LABEL) as Mode[]).map((m) => <option key={m} value={m}>{MODE_LABEL[m]}</option>)}
+        <select className="input !w-auto" value={cat} onChange={(e) => setCat(e.target.value as typeof cat)}>
+          <option value="all">All products</option>
+          {CATS.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
         </select>
         <ErrorNote msg={err} />
         {loading || !profile ? <Spinner /> : list.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">No posters match.</p> : (

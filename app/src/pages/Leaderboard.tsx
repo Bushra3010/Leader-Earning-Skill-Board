@@ -36,18 +36,18 @@ export default function Leaderboard() {
                 You are #{me.rank}{scope === 'city' && profile?.city ? ` in ${profile.city}` : ' in India'} • Business {inr(me.sales)}
               </p>
             )}
-            {others.length >= 1 && others[0].sales > 0 && <Podium rows={others.filter((r) => r.sales > 0).slice(0, 3)} />}
+            {others.length >= 1 && (others[0].sales > 0 || others[0].pinned) && <Podium rows={others.filter((r) => r.sales > 0 || r.pinned).slice(0, 3)} />}
             {me && <MeRow r={me} />}
             <section className="overflow-hidden rounded-[22px] bg-white shadow-sm">
               <div className="grid grid-cols-[56px_1fr_auto] bg-[#0f1b4d] px-4 py-3 text-sm font-bold text-white"><span>Rank</span><span>Partner</span><span>Business</span></div>
-              {others.filter((r) => r.sales > 0).length === 0
+              {others.filter((r) => r.sales > 0 || r.pinned).length === 0
                 ? <p className="py-8 text-center text-sm font-semibold text-slate-500">No sales yet this month — be the first!</p>
-                : others.filter((r) => r.sales > 0).map((r) => (
+                : others.filter((r) => r.sales > 0 || r.pinned).map((r) => (
                   <div key={r.partner_id} className={`grid grid-cols-[56px_1fr_auto] items-center border-t border-slate-100 px-4 py-3 ${r.is_me ? 'bg-emerald-50' : ''}`}>
                     <span className="text-lg font-extrabold text-slate-700">{r.rank}</span>
                     <span className="flex min-w-0 items-center gap-2.5">
                       <Avatar name={r.full_name} />
-                      <span className="min-w-0"><b className="block truncate">{r.full_name}</b><span className="block truncate text-xs text-slate-500">{r.city || '—'}</span></span>
+                      <span className="min-w-0"><b className="block truncate">{r.full_name}</b><span className="block truncate text-xs text-slate-500">{r.city || '—'}{r.pinned && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">⭐ Featured</span>}</span></span>
                     </span>
                     <span className="text-sm font-bold text-slate-700">{inr(r.sales)}</span>
                   </div>
@@ -55,7 +55,7 @@ export default function Leaderboard() {
             </section>
           </>
         )}
-        <p className="px-2 text-center text-xs text-slate-400">Ranked by paid sales through each partner's own link this calendar month.</p>
+        <p className="px-2 text-center text-xs text-slate-400">Ranked by paid sales through each member's own link this calendar month. ⭐ Featured members are placed by the team.</p>
       </main>
     </Shell>
   )
@@ -90,6 +90,7 @@ export function Podium({ rows }: { rows: LeaderRow[] }) {
           </span>
           <b className="mt-1.5 line-clamp-2 text-[12.5px] leading-tight">{r.full_name}</b>
           <span className="text-[11px] font-semibold uppercase text-slate-500">{r.city || '—'}</span>
+          {r.pinned && <span className="mt-0.5 text-[10px] font-bold text-amber-600">⭐ Featured</span>}
         </div>
       ) : <span key={i} />)}
     </div>
@@ -99,7 +100,7 @@ export function Podium({ rows }: { rows: LeaderRow[] }) {
 /** Compact card for Home: podium + link to the full page. */
 export function LeaderboardCard() {
   const [rows] = useLoad(() => api.leaderboard('india').catch(() => [] as LeaderRow[]), [])
-  const top = (rows ?? []).filter((r) => r.sales > 0).slice(0, 3)
+  const top = (rows ?? []).filter((r) => r.sales > 0 || r.pinned).slice(0, 3)
   return (
     <section className="rounded-[26px] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
       <div className="mb-3 flex items-center justify-between">

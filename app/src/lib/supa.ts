@@ -131,7 +131,7 @@ export const supabaseApi: Api = {
   },
   async getSettings() {
     const d = check(await supabase.from('app_settings').select('*').eq('id', 1).maybeSingle()) as Settings | null
-    return d ? { ...DEFAULT_SETTINGS, ...d, min_withdrawal: Number(d.min_withdrawal), partner_kit_price: Number(d.partner_kit_price) } : DEFAULT_SETTINGS
+    return d ? { ...DEFAULT_SETTINGS, ...d, min_withdrawal: Number(d.min_withdrawal), partner_kit_price: Number(d.partner_kit_price), role_features: { ...DEFAULT_SETTINGS.role_features, ...(d.role_features ?? {}) } } : DEFAULT_SETTINGS
   },
   async requestPartnerKit(ref) {
     check(await supabase.rpc('request_partner_kit', { p_payment_ref: ref }))
@@ -175,10 +175,28 @@ export const supabaseApi: Api = {
     if (r.error && /image_url|mrp/.test(r.error.message)) throw new Error('Photo and MRP need a database update first (supabase/migrations/20261124_leaderboard_team_products.sql).')
     check(r)
   },
+  async adminListMembers() {
+    const r = await supabase.from('admin_member_stats').select('*').order('created_at', { ascending: false }).limit(5000)
+    if (r.error && /admin_member_stats/.test(r.error.message)) throw new Error('Members list needs a database update first (supabase/migrations/20261125_member_types.sql).')
+    const num = ['team_size', 'paid_orders', 'sales_amount', 'incentive_earned', 'paid_out', 'pending_payout', 'wallet_balance']
+    return (check(r) ?? []).map((m: Record<string, unknown>) => ({ ...m, ...Object.fromEntries(num.map((k) => [k, Number(m[k] ?? 0)])) }))
+  },
+  async adminUploadProductImage(file, slug) {
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg')
+    const path = `${slug || 'product'}-${Date.now()}.${ext}`
+    const r = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true })
+    if (r.error) {
+      if (/bucket not found/i.test(r.error.message)) throw new Error('Picture upload needs a database update first (supabase/migrations/20261125_product_images.sql).')
+      throw new Error(r.error.message)
+    }
+    return supabase.storage.from('product-images').getPublicUrl(path).data.publicUrl
+  },
   async adminBroadcast(title, body) {
     check(await supabase.from('notifications').insert({ title, body, user_id: null }))
   },
   async adminSaveSettings(s) {
-    check(await supabase.from('app_settings').update(s).eq('id', 1))
+    const r = await supabase.from('app_settings').update(s).eq('id', 1)
+    if (r.error && /role_features/.test(r.error.message)) throw new Error('Menu settings need a database update first (supabase/migrations/20261125_member_types.sql).')
+    check(r)
   },
 }

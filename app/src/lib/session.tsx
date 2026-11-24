@@ -1,35 +1,24 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api } from './api'
 import { DEFAULT_SETTINGS } from './seed'
-import type { Mode, Profile, Settings } from './types'
+import { DEFAULT_ROLE_FEATURES, type Feature, type Profile, type Settings } from './types'
 
 interface SessionCtx {
   loading: boolean
   userId: string | null
   profile: Profile | null
   settings: Settings
-  mode: Mode
-  setMode: (m: Mode) => void
   refresh: () => Promise<void>
   toast: (msg: string) => void
 }
 
 const Ctx = createContext<SessionCtx>(null as never)
 
-function readMode(): Mode {
-  try {
-    const m = localStorage.getItem('lesb-mode') as Mode | null
-    if (m === 'pre_school' || m === 'pro_school' || m === 'school') return m
-  } catch { /* ignore */ }
-  return 'pro_school'
-}
-
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
-  const [mode, setModeState] = useState<Mode>(readMode)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
@@ -49,19 +38,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return api.onAuthChange(() => { refresh() })
   }, [refresh])
 
-  const setMode = (m: Mode) => {
-    setModeState(m)
-    try { localStorage.setItem('lesb-mode', m) } catch { /* ignore */ }
-  }
-
   const toast = useCallback((msg: string) => {
     setToastMsg(msg)
     window.setTimeout(() => setToastMsg((cur) => (cur === msg ? null : cur)), 2600)
   }, [])
 
   return (
-    <Ctx.Provider value={{ loading, userId, profile, settings, mode, setMode, refresh, toast }}>
-      <div className={`mode-${mode}`}>
+    <Ctx.Provider value={{ loading, userId, profile, settings, refresh, toast }}>
+      <div className="mode-pre_school">
         {children}
         {toastMsg && (
           <div className="fixed inset-x-0 bottom-24 z-[60] flex justify-center px-4 pointer-events-none">
@@ -91,4 +75,15 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []): [T | und
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, tick])
   return [data, loading, () => setTick((t) => t + 1), err]
+}
+
+/** Whether the signed-in member may see a menu/feature (set per member type in Admin → Settings). */
+export function useCan() {
+  const { profile, settings } = useSession()
+  return (f: Feature) => {
+    if (!profile) return false
+    if (profile.role === 'admin') return true
+    const list = settings.role_features?.[profile.role] ?? DEFAULT_ROLE_FEATURES[profile.role]
+    return list.includes(f)
+  }
 }

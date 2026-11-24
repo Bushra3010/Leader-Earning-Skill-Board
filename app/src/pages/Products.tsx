@@ -5,20 +5,7 @@ import { IconSearch } from '../components/icons'
 import { api, inr, partnerLink } from '../lib/api'
 import { useLoad, useSession } from '../lib/session'
 import type { Product } from '../lib/types'
-
-type Cat = 'packages' | 'subscription' | 'ecommerce'
-const CATS: { id: Cat; label: string; icon: string; idle: string }[] = [
-  { id: 'packages', label: 'Educational Packages', icon: '🦄', idle: 'from-[#efe4ff] to-[#e3e9ff]' },
-  { id: 'subscription', label: 'Subscription', icon: '🎓', idle: 'from-[#e3ebff] to-[#d6e2ff]' },
-  { id: 'ecommerce', label: 'E-Commerce', icon: '📗', idle: 'from-[#d4f3ef] to-[#bfe9e3]' },
-]
-
-/** Monthly billing = Subscription, physical goods = E-Commerce, everything else = Educational Packages. */
-export function categoryOf(p: Product): Cat {
-  if (p.billing === 'monthly') return 'subscription'
-  if (p.is_physical) return 'ecommerce'
-  return 'packages'
-}
+import { CATS, categoryOf, type Cat } from '../lib/category'
 
 export default function Products() {
   const { profile, settings } = useSession()
@@ -32,7 +19,7 @@ export default function Products() {
   const list = term
     ? all.filter((p) => [p.title, p.subtitle, p.best_for, p.description].some((v) => v?.toLowerCase().includes(term)))
     : all.filter((p) => categoryOf(p) === cat)
-  const kitLocked = (p: Product) => p.mode === 'pre_school' && p.requires_partner_kit && settings.require_partner_kit && profile?.kit_status !== 'paid'
+  const kitLocked = (p: Product) => p.requires_partner_kit && settings.require_partner_kit && profile?.kit_status !== 'paid' && profile?.role !== 'admin'
   const setParam = (k: string, v: string) => { const n = new URLSearchParams(qs); v ? n.set(k, v) : n.delete(k); setQs(n, { replace: true }) }
 
   return (
@@ -83,9 +70,9 @@ export function ProductCard({ p, onShare, locked }: { p: Product; onShare: () =>
     <div className="relative flex flex-col rounded-[24px] border border-slate-100 bg-white p-3 shadow-[0_6px_20px_rgba(15,23,42,0.07)]">
       {off > 0 && <span className="absolute -right-1 -top-1 z-10 rotate-6 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 px-2.5 py-1 text-center text-[13px] font-black leading-none text-white shadow-md">⚡{off}%<br />OFF</span>}
       <Link to={`/product/${p.slug}`} className="block">
-        <div className="mb-2 grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-sky-50 text-3xl">
-          {p.image_url ? <img src={p.image_url} alt="" className="h-full w-full object-cover" /> : p.emoji}
-        </div>
+        {p.image_url
+          ? <img src={p.image_url} alt="" className="mb-2 aspect-[16/7] w-full rounded-2xl bg-slate-50 object-contain" />
+          : <div className="mb-2 grid h-16 w-16 place-items-center rounded-full bg-sky-50 text-3xl">{p.emoji}</div>}
         <h3 className="text-[15px] font-extrabold leading-snug text-[#0f1b4d]">{p.title}</h3>
         {p.duration && <p className="text-xs text-slate-500">Duration: {p.duration}</p>}
       </Link>

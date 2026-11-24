@@ -3,11 +3,13 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { AppHeader, ErrorNote, Sheet, Shell, SosSheet } from '../components/ui'
 import { api, inr } from '../lib/api'
 import { resetDemo } from '../lib/demo'
-import { useLoad, useSession } from '../lib/session'
-import { MODE_LABEL, type Profile as P } from '../lib/types'
+import { useCan, useLoad, useSession } from '../lib/session'
+import type { Profile as P } from '../lib/types'
+import { CAT_LABEL, categoryOf } from '../lib/category'
 
 export default function Profile() {
-  const { profile, refresh, toast } = useSession()
+  const { profile, settings, refresh, toast } = useSession()
+  const can = useCan()
   const nav = useNavigate()
   const [qs] = useSearchParams()
   const [sheet, setSheet] = useState<null | 'details' | 'payout' | 'rates'>(qs.get('edit') === 'payout' ? 'payout' : null)
@@ -30,11 +32,11 @@ export default function Profile() {
 
         <section className="card divide-y divide-slate-100">
           <Row icon="👛" label="My Wallet & payouts" to="/wallet" />
-          <Row icon="🪪" label="My ID card, visiting card & certificate" to="/cards" />
+          {can('cards') && <Row icon="🪪" label="My ID card, visiting card & certificate" to="/cards" />}
           <Row icon="✏️" label="Edit personal details" onClick={() => setSheet('details')} />
           <Row icon="🏦" label="Payout & KYC details" hint={kyc} onClick={() => setSheet('payout')} />
           <Row icon="📊" label="Commission rates" onClick={() => setSheet('rates')} />
-          {profile.kit_status !== 'paid' && <Row icon="📦" label="Partner kit (Pre-School)" hint={profile.kit_status === 'pending' ? 'Under review' : 'Optional'} to="/kit" />}
+          {profile.role === 'associate' && <Row icon="⭐" label="Become a Partner" hint={profile.kit_status === 'pending' ? 'Under review' : `₹${settings.partner_kit_price}`} to="/kit" />}
           <Row icon="🆘" label="Help & support" onClick={() => setSos(true)} />
           <Row icon="🔒" label="Privacy policy" to="/privacy" />
           {profile.role === 'admin' && <Row icon="🛠️" label="Admin panel" to="/admin" />}
@@ -124,7 +126,7 @@ function RatesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
           <thead className="bg-slate-50 text-left text-xs text-slate-500"><tr><th className="p-2.5">Product</th><th className="p-2.5 text-right">Price</th><th className="p-2.5 text-right">You earn</th></tr></thead>
           <tbody className="divide-y divide-slate-100">
             {(products ?? []).filter((p) => p.active).map((p) => (
-              <tr key={p.id}><td className="p-2.5"><p className="font-semibold leading-tight">{p.title}</p><p className="text-xs text-slate-400">{MODE_LABEL[p.mode]}</p></td>
+              <tr key={p.id}><td className="p-2.5"><p className="font-semibold leading-tight">{p.title}</p><p className="text-xs text-slate-400">{CAT_LABEL[categoryOf(p)]}</p></td>
                 <td className="p-2.5 text-right">{inr(p.price)}{p.billing === 'monthly' ? '/mo' : ''}</td>
                 <td className="p-2.5 text-right font-bold text-emerald-700">{p.commission_pct}%<br /><span className="text-xs font-normal">{inr(p.price * p.commission_pct / 100)}</span></td></tr>
             ))}

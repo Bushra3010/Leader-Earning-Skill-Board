@@ -10,19 +10,28 @@ export default function PartnerKit() {
   const [err, setErr] = useState<string | null>(null)
   if (!profile) return null
   const steps = [
-    { k: 'not_paid', t: 'Pay for kit', d: `One-time ${inr(settings.partner_kit_price)}` },
+    { k: 'not_paid', t: 'Pay the partner fee', d: `One-time ${inr(settings.partner_kit_price)}` },
     { k: 'pending', t: 'Payment verification', d: 'Our team confirms within 24–48 hours' },
-    { k: 'paid', t: 'Kit delivered — start selling', d: 'Pre-School products unlocked' },
+    { k: 'paid', t: 'You are a Partner', d: 'Team features unlocked + partner kit sent' },
   ]
   const cur = steps.findIndex((s) => s.k === profile.kit_status)
   return (
     <Shell>
-      <SubHeader eyebrow="Pre-School" title="Partner Kit" />
+      <SubHeader eyebrow={profile.role === 'associate' ? 'Associate → Partner' : 'Partner'} title="Become a Partner" />
       <main className="space-y-4 p-4">
         <section className="card p-5">
-          <h2 className="text-lg font-extrabold">What is the Partner Kit?</h2>
-          <p className="mt-1 text-sm text-slate-600">A sample set of Pre-School products you can show to parents during demos. It costs a one-time <b>{inr(settings.partner_kit_price)}</b>.
-            {settings.require_partner_kit ? ' It is needed only to sell Pre-School kits.' : ' It is optional.'} Pro-School and School products never need a kit.</p>
+          <h2 className="text-lg font-extrabold">Associate or Partner?</h2>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+            <div className="rounded-2xl border border-slate-200 p-3">
+              <p className="font-extrabold">Associate</p><p className="text-xs text-slate-500">Free</p>
+              <ul className="mt-2 space-y-1 text-slate-600"><li>✓ Sell & share products</li><li>✓ Earn commission on your own sales</li><li className="text-slate-400">✕ No team</li></ul>
+            </div>
+            <div className="rounded-2xl border-2 border-amber-300 bg-amber-50/60 p-3">
+              <p className="font-extrabold">Partner</p><p className="text-xs text-slate-500">One-time {inr(settings.partner_kit_price)}</p>
+              <ul className="mt-2 space-y-1 text-slate-600"><li>✓ Everything in Associate</li><li>✓ Build your own team</li><li>✓ Partner kit for demos</li></ul>
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">Everyone earns only from sales made through their own link. The fee is shown upfront and is paid once.</p>
         </section>
         <section className="card p-5">
           <h3 className="mb-3 font-extrabold">Status</h3>

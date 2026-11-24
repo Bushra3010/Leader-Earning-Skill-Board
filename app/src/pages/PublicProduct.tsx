@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { ErrorNote, Spinner } from '../components/ui'
 import { api, inr } from '../lib/api'
 import { useLoad } from '../lib/session'
-import { MODE_LABEL } from '../lib/types'
+import { CAT_LABEL, categoryOf } from '../lib/category'
 
 // Page a buyer opens from a partner's shared link: /p/:slug?ref=CODE
 export default function PublicProduct() {
@@ -36,7 +36,7 @@ export default function PublicProduct() {
           <main className="space-y-5 p-4">
             <section className={`relative overflow-hidden rounded-3xl bg-gradient-to-br ${p.banner_gradient ?? 'from-navy-900 to-navy-600'} p-5 text-white`}>
               <span className="absolute right-4 top-4 text-6xl">{p.emoji}</span>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">{MODE_LABEL[p.mode]}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">{CAT_LABEL[categoryOf(p)]}</p>
               <h1 className="mt-1 max-w-[75%] font-display text-2xl font-extrabold leading-tight">{p.title}</h1>
               <p className="mt-1 text-sm text-white/80">{p.subtitle}</p>
               <p className="mt-4 text-3xl font-extrabold">{inr(p.price)}<span className="text-base font-semibold text-white/70">{p.billing === 'monthly' ? ' / month' : ''}</span></p>
@@ -46,13 +46,13 @@ export default function PublicProduct() {
             {p.description && <p className="text-[15px] leading-relaxed text-slate-700">{p.description}</p>}
             {p.features.length > 0 && <ul className="space-y-2">{p.features.map((x) => <li key={x} className="flex gap-2 text-sm"><span className="text-emerald-600">✓</span>{x}</li>)}</ul>}
             <section className="card p-4">
-              <h2 className="mb-3 text-lg font-extrabold">{p.mode === 'pro_school' ? 'Enroll now' : 'Book now'}</h2>
+              <h2 className="mb-3 text-lg font-extrabold">{p.is_physical ? 'Order now' : 'Enroll now'}</h2>
               <form className="space-y-3" onSubmit={async (e) => {
                 e.preventDefault(); setBusy(true); setErr(null)
                 try { setDone(await api.createOrder({ slug: p.slug, ref, ...f })) }
                 catch (er) { setErr(er instanceof Error ? er.message : 'Something went wrong') } finally { setBusy(false) }
               }}>
-                <div><label className="label" htmlFor="bn">{p.mode === 'pre_school' ? 'Parent name' : 'Full name'}</label><input id="bn" className="input" required value={f.name} onChange={set('name')} /></div>
+                <div><label className="label" htmlFor="bn">Full name</label><input id="bn" className="input" required value={f.name} onChange={set('name')} /></div>
                 <div><label className="label" htmlFor="bp">Mobile (WhatsApp)</label><input id="bp" className="input" required inputMode="tel" placeholder="+91" value={f.phone} onChange={set('phone')} /></div>
                 <div><label className="label" htmlFor="be">Email (optional)</label><input id="be" className="input" type="email" value={f.email} onChange={set('email')} /></div>
                 {p.is_physical && <div><label className="label" htmlFor="ba">Delivery address</label><textarea id="ba" className="input min-h-[80px]" required value={f.address} onChange={set('address')} /></div>}

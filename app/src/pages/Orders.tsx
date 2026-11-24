@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { AppHeader, Empty, ErrorNote, ModeTabs, Sheet, Shell, Spinner } from '../components/ui'
+import { AppHeader, Empty, ErrorNote, Sheet, Shell, Spinner } from '../components/ui'
 import { api, fmtDate, inr } from '../lib/api'
-import { useLoad, useSession } from '../lib/session'
+import { useLoad } from '../lib/session'
 import type { OrderStatus, PartnerOrder } from '../lib/types'
 
 type Tab = 'orders' | 'enrolled' | 'subscriptions' | 'delivery'
@@ -13,7 +13,6 @@ const STATUS_STYLE: Record<OrderStatus, string> = {
 }
 
 export default function Orders() {
-  const { mode } = useSession()
   const [orders, loading, , err] = useLoad(() => api.listMyOrders(), [])
   const [tab, setTab] = useState<Tab>('orders')
   const [q, setQ] = useState('')
@@ -22,8 +21,8 @@ export default function Orders() {
   const [status, setStatus] = useState<'all' | OrderStatus>('all')
   const [range, setRange] = useState<'all' | '7' | '30' | '90'>('all')
 
-  const scoped = useMemo(() => (orders ?? []).filter((o) => o.mode === mode)
-    .filter((o) => range === 'all' || Date.now() - new Date(o.created_at).getTime() <= Number(range) * 86400000), [orders, mode, range])
+  const scoped = useMemo(() => (orders ?? [])
+    .filter((o) => range === 'all' || Date.now() - new Date(o.created_at).getTime() <= Number(range) * 86400000), [orders, range])
 
   const shown = useMemo(() => {
     let l = scoped
@@ -39,7 +38,7 @@ export default function Orders() {
   const paid = scoped.filter((o) => o.status === 'paid')
   return (
     <Shell>
-      <AppHeader page="Reports"><ModeTabs noun="reports" /></AppHeader>
+      <AppHeader page="Reports" />
       <main className="space-y-4 p-4">
         <ErrorNote msg={err} />
         <section className="card p-4">

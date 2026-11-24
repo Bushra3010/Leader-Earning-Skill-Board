@@ -5,6 +5,7 @@ import { PUBLIC_URL } from '../lib/api'
 import { drawCard, shareOrDownload, type CardKind } from '../lib/canvasCards'
 import { useSession } from '../lib/session'
 import { Avatar } from './Leaderboard'
+import { ROLE_LABEL } from '../lib/types'
 
 const KINDS: { id: CardKind; label: string; icon: string }[] = [
   { id: 'id', label: 'ID Card', icon: '🪪' },
@@ -35,7 +36,7 @@ export default function Cards() {
       <main className="space-y-4 p-4">
         <section className="flex items-center gap-3 rounded-[22px] bg-white p-4 shadow-sm">
           <Avatar name={profile.full_name} size={52} />
-          <div className="min-w-0 flex-1"><b className="block truncate">{profile.full_name}</b><span className="text-xs text-slate-500">{profile.role === 'admin' ? 'Admin' : 'Partner'} • {profile.referral_code}</span></div>
+          <div className="min-w-0 flex-1"><b className="block truncate">{profile.full_name}</b><span className="text-xs text-slate-500">{ROLE_LABEL[profile.role]} • {profile.referral_code}</span></div>
           <Link to="/profile" className="btn-primary !px-3 !py-2 text-xs">✏️ Edit Profile</Link>
         </section>
         <div className="flex gap-2">

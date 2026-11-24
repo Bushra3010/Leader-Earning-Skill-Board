@@ -3,31 +3,35 @@ import { Link, useNavigate } from 'react-router-dom'
 import { BrandLogo, Shell, SosSheet } from '../components/ui'
 import { IconBox, IconCapFill, IconChart, IconChevronRight, IconHeadset, IconLogout, IconMegaphone, IconSettings, IconShield, IconUser, IconUsers, IconWallet } from '../components/icons'
 import { api } from '../lib/api'
-import { useSession } from '../lib/session'
+import { useCan, useSession } from '../lib/session'
+import type { Feature } from '../lib/types'
 
-type Item = { label: string; sub: string; icon: ReactNode; tone: string; to?: string; onClick?: () => void }
+type Item = { label: string; sub: string; icon: ReactNode; tone: string; to?: string; onClick?: () => void; feature?: Feature }
 
 export default function More() {
-  const { profile, refresh } = useSession()
+  const { profile, settings, refresh } = useSession()
+  const can = useCan()
   const nav = useNavigate()
   const [sos, setSos] = useState(false)
 
   const items: Item[] = [
     { label: 'My Profile', sub: 'View & edit your profile', icon: <IconUser size={26} />, tone: 'bg-[#e8eeff] text-[#2347c9]', to: '/profile' },
     { label: 'My Orders', sub: 'Track orders & delivery', icon: <IconBox size={26} />, tone: 'bg-orange-50 text-orange-500', to: '/orders' },
-    { label: 'My Courses', sub: 'Access your enrolled courses', icon: <IconCapFill size={28} />, tone: 'bg-[#e8eeff] text-[#2347c9]', to: '/learn' },
+    { label: 'My Courses', sub: 'Access your enrolled courses', icon: <IconCapFill size={28} />, tone: 'bg-[#e8eeff] text-[#2347c9]', to: '/learn' , feature: 'learn' },
     { label: 'My Earnings', sub: 'Sales, wallet & payouts', icon: <IconChart size={26} />, tone: 'bg-emerald-50 text-emerald-600', to: '/wallet' },
-    { label: 'My Team', sub: 'Add & manage your team', icon: <IconUsers size={26} />, tone: 'bg-sky-50 text-[#2b6be0]', to: '/team' },
-    { label: 'Leaderboard', sub: 'Top partners this month', icon: <span className="text-2xl">🏆</span>, tone: 'bg-amber-50', to: '/leaderboard' },
-    { label: 'Posters', sub: 'Ready-to-share posters with your details', icon: <span className="text-2xl">🖼️</span>, tone: 'bg-pink-50', to: '/posters' },
-    { label: 'My Cards', sub: 'ID card, visiting card, certificate', icon: <span className="text-2xl">🪪</span>, tone: 'bg-sky-50', to: '/cards' },
+    { label: 'My Team', sub: 'Add & manage your team', icon: <IconUsers size={26} />, tone: 'bg-sky-50 text-[#2b6be0]', to: '/team' , feature: 'team' },
+    { label: 'Leaderboard', sub: 'Top partners this month', icon: <span className="text-2xl">🏆</span>, tone: 'bg-amber-50', to: '/leaderboard' , feature: 'leaderboard' },
+    { label: 'Posters', sub: 'Ready-to-share posters with your details', icon: <span className="text-2xl">🖼️</span>, tone: 'bg-pink-50', to: '/posters' , feature: 'posters' },
+    { label: 'My Cards', sub: 'ID card, visiting card, certificate', icon: <span className="text-2xl">🪪</span>, tone: 'bg-sky-50', to: '/cards' , feature: 'cards' },
     { label: 'Promotions', sub: 'Campaigns & offers', icon: <IconMegaphone size={26} />, tone: 'bg-rose-50 text-rose-500', to: '/notifications' },
     { label: 'Wallet', sub: 'Add money, withdraw & history', icon: <IconWallet size={26} />, tone: 'bg-[#e8eeff] text-[#2347c9]', to: '/wallet' },
     { label: 'Help & Support', sub: 'Get help, FAQs & contact us', icon: <IconHeadset size={26} />, tone: 'bg-violet-50 text-violet-600', onClick: () => setSos(true) },
     { label: 'Settings', sub: 'App, notification & security', icon: <IconSettings size={26} />, tone: 'bg-slate-100 text-slate-700', to: '/profile' },
   ]
-  if (profile?.role === 'admin') items.push({ label: 'Admin Panel', sub: 'Orders, payouts & products', icon: <IconShield size={26} />, tone: 'bg-amber-50 text-amber-600', to: '/admin' })
-  items.push({ label: 'Log out', sub: 'Sign out of this device', icon: <IconLogout size={26} />, tone: 'bg-red-50 text-red-500', onClick: async () => { await api.signOut(); await refresh(); nav('/login') } })
+  const shown = items.filter((it) => !it.feature || can(it.feature))
+  if (profile?.role === 'associate') shown.splice(1, 0, { label: 'Become a Partner', sub: `One-time ₹${settings.partner_kit_price} • build your own team`, icon: <span className="text-2xl">⭐</span>, tone: 'bg-amber-50', to: '/kit' })
+  if (profile?.role === 'admin') shown.push({ label: 'Admin Panel', sub: 'Orders, payouts & products', icon: <IconShield size={26} />, tone: 'bg-amber-50 text-amber-600', to: '/admin' })
+  shown.push({ label: 'Log out', sub: 'Sign out of this device', icon: <IconLogout size={26} />, tone: 'bg-red-50 text-red-500', onClick: async () => { await api.signOut(); await refresh(); nav('/login') } })
 
   return (
     <Shell>
@@ -50,7 +54,7 @@ export default function More() {
 
       <main className="relative -mt-4 px-4">
         <ul className="divide-y divide-slate-100 rounded-[26px] bg-white px-4 shadow-[0_8px_30px_rgba(15,23,42,0.07)]">
-          {items.map((it) => {
+          {shown.map((it) => {
             const inner = (
               <>
                 <span className={`grid h-[52px] w-[52px] shrink-0 place-items-center rounded-2xl ${it.tone}`}>{it.icon}</span>

@@ -1,14 +1,15 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { BrandHeader, ErrorNote, ModeTabs, PartnerIdChip, ShareSheet, Shell } from '../components/ui'
+import { BrandHeader, ErrorNote, PartnerIdChip, ShareSheet, Shell } from '../components/ui'
 import { IconArrowRight, IconBolt, IconCart, IconCapFill, IconChart, IconHand, IconSearch, IconShare, IconStar, IconUsers, IconWallet, Trophy } from '../components/icons'
 import { api, inr, walletBalance } from '../lib/api'
-import { useLoad, useSession } from '../lib/session'
+import { useCan, useLoad, useSession } from '../lib/session'
 import type { Product } from '../lib/types'
 import { LeaderboardCard } from './Leaderboard'
 
 export default function Home() {
-  const { mode, profile, settings } = useSession()
+  const { profile, settings } = useSession()
+  const can = useCan()
   const nav = useNavigate()
   const [products, , , err] = useLoad(() => api.listProducts(), [])
   const [orders] = useLoad(() => api.listMyOrders(), [])
@@ -16,12 +17,12 @@ export default function Home() {
   const [share, setShare] = useState<Product | null>(null)
   const [q, setQ] = useState('')
 
-  const list = (products ?? []).filter((p) => p.mode === mode && p.active)
+  const list = (products ?? []).filter((p) => p.active)
   const featured = list.filter((p) => p.is_featured)
   const banners = featured.length ? featured : list.slice(0, 3)
   const paid = (orders ?? []).filter((o) => o.status === 'paid')
   const totalSales = paid.reduce((s, o) => s + Number(o.amount), 0)
-  const kitNeeded = mode === 'pre_school' && settings.require_partner_kit && profile?.kit_status !== 'paid'
+  const upgrade = profile?.role === 'associate'
   const firstName = (profile?.full_name || 'Partner').split(' ')[0]
 
   return (
@@ -48,18 +49,16 @@ export default function Home() {
           </form>
         </section>
 
-        <ModeTabs />
-
         <ErrorNote msg={err} />
 
-        {kitNeeded && (
-          <Link to="/kit" className="flex items-center gap-3 rounded-[24px] border border-red-200 bg-gradient-to-r from-red-50 to-white p-4 shadow-sm">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500 text-xl text-white">⚠️</span>
+        {upgrade && (
+          <Link to="/kit" className="flex items-center gap-3 rounded-[24px] border border-amber-200 bg-gradient-to-r from-amber-50 to-white p-4 shadow-sm">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-b from-[#e2b84a] to-[#c08a2a] text-xl text-white">⭐</span>
             <span className="min-w-0 flex-1">
-              <span className="block font-extrabold text-slate-900">{profile?.kit_status === 'pending' ? 'Kit payment under review' : 'Partner kit required'}</span>
-              <span className="block text-sm text-slate-600">One-time {inr(settings.partner_kit_price)} to sell Pre-School kits</span>
+              <span className="block font-extrabold text-slate-900">{profile?.kit_status === 'pending' ? 'Partner payment under review' : 'Become a Partner'}</span>
+              <span className="block text-sm text-slate-600">One-time {inr(settings.partner_kit_price)} • build your own team + partner kit</span>
             </span>
-            <span className="rounded-full bg-red-500 px-3 py-1.5 text-xs font-bold text-white">{profile?.kit_status === 'pending' ? 'Details' : 'Pay now'}</span>
+            <span className="rounded-full bg-[#c08a2a] px-3 py-1.5 text-xs font-bold text-white">{profile?.kit_status === 'pending' ? 'Details' : 'Join'}</span>
           </Link>
         )}
 
@@ -94,18 +93,18 @@ export default function Home() {
           <div className="grid grid-cols-4 gap-2.5">
             <Action to="/products" label="Start Selling" icon={<IconCart size={30} />} cls="from-violet-100 to-violet-50 text-violet-600" />
             <Action to="/products" label="Share Products" icon={<IconShare size={30} />} cls="from-sky-100 to-sky-50 text-[#2b6be0]" />
-            <Action to="/learn" label="My Courses" icon={<IconCapFill size={32} />} cls="from-orange-100 to-amber-50 text-orange-500" />
-            <Action to="/team" label="My Team" icon={<IconUsers size={30} />} cls="from-emerald-100 to-emerald-50 text-emerald-600" />
+            {can('learn') && <Action to="/learn" label="My Courses" icon={<IconCapFill size={32} />} cls="from-orange-100 to-amber-50 text-orange-500" />}
+            {can('team') && <Action to="/team" label="My Team" icon={<IconUsers size={30} />} cls="from-emerald-100 to-emerald-50 text-emerald-600" />}
           </div>
         </section>
 
-        <LeaderboardCard />
+        {can('leaderboard') && <LeaderboardCard />}
 
-        <Link to="/posters" className="flex items-center gap-3 rounded-[26px] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
+        {can('posters') && <Link to="/posters" className="flex items-center gap-3 rounded-[26px] bg-white p-4 shadow-[0_6px_24px_rgba(15,23,42,0.06)]">
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-pink-50 text-2xl">🖼️</span>
           <span className="min-w-0 flex-1"><b className="block text-[16.5px] text-[#0f1b4d]">Ready-to-Share Posters</b><span className="text-[13px] text-slate-600">Posters with your name, number &amp; code</span></span>
           <IconArrowRight size={20} className="text-slate-500" />
-        </Link>
+        </Link>}
 
         <p className="px-2 pb-2 text-center text-xs text-slate-400">You earn only from sales made through your own link. Commission % is fixed per product and shown before you share.</p>
       </main>

@@ -1,6 +1,6 @@
 import type {
   AdminOrder, AppNotification, DeliveryStatus, Lesson, OrderStatus, PartnerOrder, Product, Profile,
-  Settings, SignUpInput, TeamMember, WalletTx, Withdrawal, LeaderRow, TeamStats,
+  Settings, SignUpInput, TeamMember, WalletTx, Withdrawal, LeaderRow, TeamStats, MemberStat,
 } from './types'
 import { demoApi } from './demo'
 import { supabaseApi } from './supa'
@@ -42,8 +42,11 @@ export interface Api {
   adminListWithdrawals(): Promise<Withdrawal[]>
   adminUpdateWithdrawal(id: string, status: Withdrawal['status'], note?: string): Promise<void>
   adminListPartners(): Promise<Profile[]>
+  adminListMembers(): Promise<MemberStat[]>
   adminUpdatePartner(id: string, patch: Partial<Profile>): Promise<void>
   adminSaveProduct(p: Partial<Product> & { slug: string }): Promise<void>
+  /** Uploads a product picture and returns its public URL. */
+  adminUploadProductImage(file: File, slug: string): Promise<string>
   adminBroadcast(title: string, body: string): Promise<void>
   adminSaveSettings(s: Settings): Promise<void>
 }

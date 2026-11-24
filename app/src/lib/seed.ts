@@ -1,4 +1,4 @@
-import type { Lesson, Product, Settings } from './types'
+import { DEFAULT_ROLE_FEATURES, type Lesson, type Product, type Settings } from './types'
 
 // Starter catalogue. Edit freely (Admin → Products, or the products table in Supabase).
 type SeedProduct = Omit<Product, 'id' | 'active' | 'sort_order' | 'requires_partner_kit' | 'banner_gradient'> &
@@ -144,4 +144,5 @@ export const DEFAULT_SETTINGS: Settings = {
   support_phone: '',
   support_email: '',
   whatsapp_number: '',
+  role_features: DEFAULT_ROLE_FEATURES,
 }

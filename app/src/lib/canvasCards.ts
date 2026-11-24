@@ -71,7 +71,8 @@ export async function drawPoster(p: Product, me: Profile, link: string): Promise
   ctx.fillStyle = '#fff'; rr(ctx, 60, 190, W - 120, 420, 40); ctx.fill()
   if (pic) {
     ctx.save(); rr(ctx, 60, 190, W - 120, 420, 40); ctx.clip()
-    const s = Math.max((W - 120) / pic.width, 420 / pic.height)
+    // "contain": show the whole picture (designed artwork must not be cropped)
+    const s = Math.min((W - 120) / pic.width, 420 / pic.height)
     ctx.drawImage(pic, 60 + ((W - 120) - pic.width * s) / 2, 190 + (420 - pic.height * s) / 2, pic.width * s, pic.height * s)
     ctx.restore()
   } else {
@@ -136,7 +137,7 @@ export async function drawCard(kind: CardKind, me: Profile, link: string): Promi
     ctx.fillStyle = BLUE; ctx.font = `800 110px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(initials(me.full_name), W / 2, 475)
     ctx.textBaseline = 'alphabetic'; ctx.fillStyle = NAVY; ctx.font = `800 56px ${FONT}`
     ctx.fillText(wrap(ctx, me.full_name || 'Partner', W - 80, 1)[0], W / 2, 730)
-    ctx.fillStyle = BLUE; ctx.font = `700 34px ${FONT}`; ctx.fillText(me.role === 'admin' ? 'ADMIN' : 'AUTHORISED PARTNER', W / 2, 785)
+    ctx.fillStyle = BLUE; ctx.font = `700 34px ${FONT}`; ctx.fillText(({ admin: 'ADMIN', partner: 'AUTHORISED PARTNER', associate: 'ASSOCIATE' } as const)[me.role], W / 2, 785)
     ctx.textAlign = 'left'; ctx.fillStyle = '#334155'; ctx.font = `600 32px ${FONT}`
     const rows: [string, string][] = [['Partner ID', me.referral_code], ['Phone', me.phone || '—'], ['City', me.city || '—'], ['Since', since]]
     rows.forEach(([k, v], i) => { const yy = 870 + i * 52; ctx.fillStyle = '#64748b'; ctx.fillText(k, 90, yy); ctx.fillStyle = NAVY; ctx.font = `700 32px ${FONT}`; ctx.fillText(v, 300, yy); ctx.font = `600 32px ${FONT}` })
@@ -149,7 +150,7 @@ export async function drawCard(kind: CardKind, me: Profile, link: string): Promi
     ctx.fillStyle = GOLD; ctx.fillRect(0, H - 18, W, 18)
     await brand(ctx, 60, 50, 100)
     ctx.fillStyle = '#fff'; ctx.font = `800 62px ${FONT}`; ctx.fillText(wrap(ctx, me.full_name || 'Partner', W - 120, 1)[0], 60, 280)
-    ctx.fillStyle = GOLD; ctx.font = `700 32px ${FONT}`; ctx.fillText('Education & Skills Partner', 60, 330)
+    ctx.fillStyle = GOLD; ctx.font = `700 32px ${FONT}`; ctx.fillText(me.role === 'associate' ? 'Education & Skills Associate' : 'Education & Skills Partner', 60, 330)
     ctx.fillStyle = '#fff'; ctx.font = `600 32px ${FONT}`
     ctx.fillText(`📞  ${me.phone || '—'}`, 60, 410)
     ctx.fillText(`✉️  ${me.email || '—'}`, 60, 460)
@@ -166,7 +167,7 @@ export async function drawCard(kind: CardKind, me: Profile, link: string): Promi
     ctx.font = `800 70px ${FONT}`; ctx.fillStyle = BLUE; ctx.fillText(wrap(ctx, me.full_name || 'Partner', W - 300, 1)[0], W / 2, 530)
     ctx.strokeStyle = GOLD; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(W / 2 - 360, 560); ctx.lineTo(W / 2 + 360, 560); ctx.stroke()
     ctx.font = `500 34px ${FONT}`; ctx.fillStyle = '#475569'
-    ctx.fillText('is an authorised partner of Leaders Earning & Skill Board', W / 2, 630)
+    ctx.fillText(`is an authorised ${me.role === 'associate' ? 'associate' : 'partner'} of Leaders Earning & Skill Board`, W / 2, 630)
     ctx.fillText(`Partner ID ${me.referral_code}${me.city ? ' • ' + me.city : ''} • Partner since ${since}`, W / 2, 685)
     ctx.font = `700 30px ${FONT}`; ctx.fillStyle = NAVY; ctx.fillText('Leaders Earning & Skill Board', W / 2, 860)
   }
@@ -184,4 +185,34 @@ export async function shareOrDownload(blob: Blob, name: string, text: string, mo
   const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 4000)
   return 'downloaded'
+}
+
+/**
+ * Shares the product poster together with the message, so WhatsApp shows the poster on top
+ * and the pitch + link as its caption. Works in the Android app (native share) and in
+ * mobile browsers that can share files. Elsewhere it saves the poster and returns 'fallback'.
+ */
+export async function sharePosterWithText(p: Product, me: Profile, link: string, text: string): Promise<'shared' | 'fallback'> {
+  const blob = await drawPoster(p, me, link)
+  const name = `${p.slug}-poster.png`
+  const { Capacitor } = await import('@capacitor/core')
+  if (Capacitor.isNativePlatform()) {
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([import('@capacitor/filesystem'), import('@capacitor/share')])
+    const data = await new Promise<string>((res, rej) => {
+      const r = new FileReader()
+      r.onload = () => res(String(r.result).split(',')[1] ?? '')
+      r.onerror = () => rej(new Error('Could not read poster'))
+      r.readAsDataURL(blob)
+    })
+    const saved = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache })
+    await Share.share({ title: p.title.trim(), text, files: [saved.uri], dialogTitle: 'Share poster' }).catch(() => {})
+    return 'shared'
+  }
+  const file = new File([blob], name, { type: 'image/png' })
+  if (navigator.canShare?.({ files: [file], text })) {
+    await navigator.share({ files: [file], text }).catch(() => {})
+    return 'shared'
+  }
+  await shareOrDownload(blob, name, text, 'download')
+  return 'fallback'
 }
