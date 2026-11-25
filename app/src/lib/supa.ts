@@ -183,8 +183,8 @@ export const supabaseApi: Api = {
   },
   async adminUploadProductImage(file, slug) {
     const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg')
-    const path = `${slug || 'product'}-${Date.now()}.${ext}`
-    const r = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: true })
+    const path = `${(slug || 'product').replace(/[^a-z0-9-]/g, '') || 'product'}-${Date.now()}.${ext}`
+    const r = await supabase.storage.from('product-images').upload(path, file, { contentType: file.type, upsert: false, cacheControl: '31536000' })
     if (r.error) {
       if (/bucket not found/i.test(r.error.message)) throw new Error('Picture upload needs a database update first (supabase/migrations/20261125_product_images.sql).')
       throw new Error(r.error.message)

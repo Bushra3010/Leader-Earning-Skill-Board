@@ -622,3 +622,8 @@ revoke all on public.admin_member_stats from anon;
 grant select on public.admin_member_stats to authenticated;
 
 commit;
+
+-- Added 2026-11-26 (also in supabase/migrations/20261126_product_images_read.sql)
+drop policy if exists "product images read" on storage.objects;
+create policy "product images read" on storage.objects for select
+  using (bucket_id = 'product-images');
