@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api } from './api'
 import { DEFAULT_SETTINGS } from './seed'
-import { DEFAULT_ROLE_FEATURES, type Feature, type Profile, type Settings } from './types'
+import { DEFAULT_ROLE_FEATURES, memberCan, type Feature, type Profile, type Settings } from './types'
 
 interface SessionCtx {
   loading: boolean
@@ -80,10 +80,5 @@ export function useLoad<T>(fn: () => Promise<T>, deps: unknown[] = []): [T | und
 /** Whether the signed-in member may see a menu/feature (set per member type in Admin → Settings). */
 export function useCan() {
   const { profile, settings } = useSession()
-  return (f: Feature) => {
-    if (!profile) return false
-    if (profile.role === 'admin') return true
-    const list = settings.role_features?.[profile.role] ?? DEFAULT_ROLE_FEATURES[profile.role]
-    return list.includes(f)
-  }
+  return (f: Feature) => (profile ? memberCan(profile, f, { ...DEFAULT_ROLE_FEATURES, ...settings.role_features }) : false)
 }

@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { Empty, ErrorNote, Sheet, Shell, Spinner, SubHeader } from '../components/ui'
 import { api, fmtDate, inr } from '../lib/api'
 import { useLoad, useSession } from '../lib/session'
-import { FEATURES, ROLE_LABEL, type DeliveryStatus, type Feature, type MemberStat, type OrderStatus, type Product, type Profile, type Role, type Settings } from '../lib/types'
+import { DEFAULT_ROLE_FEATURES, FEATURES, memberCan, ROLE_LABEL, type DeliveryStatus, type DemoVideo, type Feature, type MemberStat, type OrderStatus, type Product, type Profile, type Role, type Settings } from '../lib/types'
 import { CAT_LABEL, categoryOf } from '../lib/category'
 
-type Tab = 'members' | 'orders' | 'payouts' | 'products' | 'broadcast' | 'settings'
+type Tab = 'members' | 'support' | 'orders' | 'payouts' | 'products' | 'videos' | 'broadcast' | 'settings'
 
 export default function Admin() {
   const [tab, setTab] = useState<Tab>('members')
@@ -13,7 +13,7 @@ export default function Admin() {
     <Shell>
       <SubHeader eyebrow="Admin" title="Control panel" />
       <div className="no-scrollbar sticky top-[69px] z-20 flex gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-2.5">
-        {(['members', 'orders', 'payouts', 'products', 'broadcast', 'settings'] as Tab[]).map((t) => (
+        {(['members', 'support', 'orders', 'payouts', 'products', 'videos', 'broadcast', 'settings'] as Tab[]).map((t) => (
           <button key={t} onClick={() => setTab(t)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold capitalize ${tab === t ? 'bg-navy-800 text-white' : 'bg-slate-100 text-slate-600'}`}>{t}</button>
         ))}
       </div>
@@ -21,6 +21,8 @@ export default function Admin() {
         {tab === 'orders' && <OrdersAdmin />}
         {tab === 'payouts' && <PayoutsAdmin />}
         {tab === 'members' && <MembersAdmin />}
+        {tab === 'support' && <SupportAdmin />}
+        {tab === 'videos' && <VideosAdmin />}
         {tab === 'products' && <ProductsAdmin />}
         {tab === 'broadcast' && <BroadcastAdmin />}
         {tab === 'settings' && <SettingsAdmin />}
@@ -90,6 +92,128 @@ function PayoutsAdmin() {
           )}
         </div>
       ))}
+    </>
+  )
+}
+
+function VideosAdmin() {
+  const { toast } = useSession()
+  const [list, loading, reload, err] = useLoad(() => api.listVideos(), [])
+  const [products] = useLoad(() => api.listProducts(), [])
+  const [edit, setEdit] = useState<Partial<DemoVideo> | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [formErr, setFormErr] = useState<string | null>(null)
+  const pname = (id: string | null) => (products ?? []).find((p) => p.id === id)?.title.trim()
+  return (
+    <>
+      <ErrorNote msg={err} />
+      <button className="btn-gold w-full" onClick={() => { setFormErr(null); setEdit({ title: '', video_url: '', product_id: null, active: true, sort_order: (list?.length ?? 0) }) }}>+ Add demo video</button>
+      <p className="text-xs text-slate-500">Short 30–60 sec videos (phone recordings are fine). They show on Home under “Videos To Help You Start”, and on the linked product's page.</p>
+      {loading ? <Spinner /> : !list?.length ? <Empty icon="🎬" title="No videos yet" text="Add your first demo video." /> : list.map((v) => (
+        <div key={v.id} className="card flex items-center gap-3 p-3">
+          <video src={`${v.video_url}#t=0.5`} preload="metadata" muted playsInline className="h-20 w-14 shrink-0 rounded-xl bg-slate-900 object-cover" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold">{v.title}</p>
+            <p className="truncate text-xs text-slate-500">{pname(v.product_id) ?? 'Not linked to a product'}{!v.active && ' • hidden'}</p>
+          </div>
+          <button className="icon-btn" aria-label={`Edit ${v.title}`} onClick={() => { setFormErr(null); setEdit(v) }}>✏️</button>
+        </div>
+      ))}
+      <Sheet open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'Edit video' : 'Add demo video'}>
+        {edit && (
+          <form className="space-y-3" onSubmit={async (e) => {
+            e.preventDefault(); setFormErr(null)
+            if (!edit.title?.trim()) return setFormErr('Add a title')
+            if (!edit.video_url) return setFormErr('Upload a video first')
+            try { await api.adminSaveVideo({ ...edit, title: edit.title.trim(), video_url: edit.video_url } as DemoVideo); toast('Video saved'); setEdit(null); reload() }
+            catch (er) { setFormErr(er instanceof Error ? er.message : 'Failed') }
+          }}>
+            {edit.video_url
+              ? <video src={edit.video_url} controls playsInline className="max-h-72 w-full rounded-2xl bg-black" />
+              : <div className="grid h-40 place-items-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-400">No video yet</div>}
+            <label className={`btn-primary w-full cursor-pointer ${busy ? 'opacity-60' : ''}`}>
+              {busy ?? (edit.video_url ? 'Replace video' : '🎬 Upload video (MP4, under 50 MB)')}
+              <input type="file" accept="video/*" className="hidden" disabled={!!busy} onChange={async (e) => {
+                const f = e.target.files?.[0]; e.target.value = ''
+                if (!f) return
+                if (f.size > 50 * 1024 * 1024) return setFormErr('Video must be under 50 MB — a 30–60 sec clip usually is')
+                setBusy('Uploading… keep this screen open'); setFormErr(null)
+                try { const url = await api.adminUploadVideo(f); setEdit((cur) => cur && { ...cur, video_url: url, title: cur.title || f.name.replace(/\.[^.]+$/, '') }) }
+                catch (er) { setFormErr(er instanceof Error ? er.message : 'Upload failed') } finally { setBusy(null) }
+              }} />
+            </label>
+            <label className="label">Title<input className="input mt-1" placeholder="e.g. Memory Kit Demo" value={edit.title ?? ''} onChange={(e) => setEdit({ ...edit, title: e.target.value })} /></label>
+            <label className="label">Linked product (optional)
+              <select className="input mt-1" value={edit.product_id ?? ''} onChange={(e) => setEdit({ ...edit, product_id: e.target.value || null })}>
+                <option value="">None</option>
+                {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.title.trim()}</option>)}
+              </select></label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="label">Order<input className="input mt-1" inputMode="numeric" value={edit.sort_order ?? 0} onChange={(e) => setEdit({ ...edit, sort_order: Number(e.target.value.replace(/\D/g, '')) || 0 })} /></label>
+              <label className="mt-6 flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 text-sm font-semibold"><input type="checkbox" checked={edit.active ?? true} onChange={(e) => setEdit({ ...edit, active: e.target.checked })} />Visible</label>
+            </div>
+            <ErrorNote msg={formErr} />
+            <button className="btn-gold w-full" disabled={!!busy}>Save video</button>
+            {edit.id && <button type="button" className="btn-outline w-full text-red-600" onClick={async () => {
+              if (!window.confirm('Delete this video from the app?')) return
+              try { await api.adminDeleteVideo(edit.id!); toast('Deleted'); setEdit(null); reload() } catch (er) { setFormErr(er instanceof Error ? er.message : 'Failed') }
+            }}>Delete video</button>}
+          </form>
+        )}
+      </Sheet>
+    </>
+  )
+}
+
+function SupportAdmin() {
+  const { toast, settings } = useSession()
+  const [list, loading, reload, err] = useLoad(() => api.adminListTickets(), [])
+  const [filter, setFilter] = useState<'open' | 'closed' | 'all'>('open')
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
+  const all = list ?? []
+  const shown = all.filter((t) => filter === 'all' || t.status === filter)
+  const save = async (id: string, patch: { status?: 'open' | 'closed'; admin_reply?: string | null }, msg: string) => {
+    try { await api.adminUpdateTicket(id, patch); toast(msg); reload() } catch (e) { toast(e instanceof Error ? e.message : 'Failed') }
+  }
+  const noContacts = !settings.support_phone && !settings.support_email && !settings.whatsapp_number
+  return (
+    <>
+      <ErrorNote msg={err} />
+      {noContacts && <p className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Add your support phone, email and WhatsApp in <b>Settings</b> so members can also call or message you directly.</p>}
+      <div className="flex gap-2">
+        {([['open', `Open (${all.filter((t) => t.status === 'open').length})`], ['closed', 'Closed'], ['all', 'All']] as const).map(([f, l]) => (
+          <button key={f} onClick={() => setFilter(f)} className={`rounded-full px-3.5 py-1.5 text-sm font-bold ${filter === f ? 'bg-navy-800 text-white' : 'bg-white text-slate-600 shadow-sm'}`}>{l}</button>
+        ))}
+      </div>
+      {loading ? <Spinner /> : !shown.length ? <Empty icon="💬" title={filter === 'open' ? 'No open requests' : 'No requests'} /> : shown.map((t) => {
+        const phone = (t.profiles?.phone ?? '').replace(/\D/g, '')
+        const draft = drafts[t.id] ?? t.admin_reply ?? ''
+        return (
+          <div key={t.id} className={`card space-y-2 p-4 ${t.status === 'open' && !t.admin_reply ? 'ring-2 ring-amber-200' : ''}`}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-bold">{t.subject}</p>
+                <p className="truncate text-xs text-slate-500">{t.profiles?.full_name ?? '—'} • {t.profiles?.referral_code} • {t.profiles?.phone || 'no phone'}{t.profiles?.approval_status && t.profiles.approval_status !== 'approved' ? ` • ${t.profiles.approval_status}` : ''}</p>
+              </div>
+              <span className="shrink-0 text-xs text-slate-400">{fmtDate(t.created_at)}</span>
+            </div>
+            <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm text-slate-700">{t.message}</p>
+            <textarea className="input min-h-[70px] text-sm" placeholder="Write a reply — the member sees it in Help & Support" value={draft} onChange={(e) => setDrafts({ ...drafts, [t.id]: e.target.value })} />
+            <div className="grid grid-cols-2 gap-2">
+              <button className="btn-primary !py-2 text-sm" disabled={!draft.trim() || draft === (t.admin_reply ?? '')} onClick={() => save(t.id, { admin_reply: draft.trim() }, 'Reply sent')}>Send reply</button>
+              {t.status === 'open'
+                ? <button className="btn-soft !py-2 text-sm" onClick={() => save(t.id, { status: 'closed' }, 'Closed')}>✓ Close</button>
+                : <button className="btn-soft !py-2 text-sm" onClick={() => save(t.id, { status: 'open' }, 'Reopened')}>Reopen</button>}
+            </div>
+            {phone.length >= 10 && (
+              <div className="grid grid-cols-2 gap-2">
+                <a className="btn-outline !py-2 text-sm" href={`tel:${t.profiles?.phone}`}>📞 Call</a>
+                <a className="btn bg-[#25D366] !py-2 text-sm text-white" href={`https://wa.me/${phone.length === 10 ? '91' + phone : phone}?text=${encodeURIComponent(`Hello ${t.profiles?.full_name ?? ''}, this is Leaders support about: ${t.subject}`)}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+              </div>
+            )}
+          </div>
+        )
+      })}
     </>
   )
 }
@@ -186,12 +310,47 @@ function MembersAdmin() {
                     {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>Pin at #{n}</option>)}
                   </select></label>
               </div>
+              <MemberMenus m={m} onSave={(o, msg) => upd(m.id, { feature_overrides: o }, msg)} />
             </div>
           )}
         </div>
       ))}
       <p className="px-1 text-center text-xs text-slate-400">Tap a member for details. Incentive = commission credited for their own paid sales (after reversals).</p>
     </>
+  )
+}
+
+/** Per-member menu switches. Ticks start from the member type's settings; changing one makes it custom for this member. */
+function MemberMenus({ m, onSave }: { m: MemberStat; onSave: (o: Partial<Record<Feature, boolean>>, msg: string) => void }) {
+  const { settings } = useSession()
+  if (m.role === 'admin') return <p className="rounded-xl bg-slate-50 p-2.5 text-xs text-slate-500">Admins always see every menu.</p>
+  const rf = { ...DEFAULT_ROLE_FEATURES, ...settings.role_features }
+  const o = m.feature_overrides ?? {}
+  const custom = Object.keys(o).length > 0
+  return (
+    <div className="rounded-2xl border border-slate-200 p-3">
+      <div className="mb-1 flex items-center justify-between">
+        <p className="text-sm font-bold">Menus for this member {custom && <span className="chip ml-1 !border-violet-200 !bg-violet-50 !text-violet-700">custom</span>}</p>
+        {custom && <button className="text-xs font-semibold text-[#2347c9] underline" onClick={() => onSave({}, `Reset to ${ROLE_LABEL[m.role]} settings`)}>Reset</button>}
+      </div>
+      <p className="mb-2 text-[11px] text-slate-500">Starts from the {ROLE_LABEL[m.role]} settings. Tick or untick to change it just for {m.full_name || 'this member'}.</p>
+      <ul className="divide-y divide-slate-100">
+        {FEATURES.map((f) => {
+          const on = memberCan(m, f.id, rf)
+          const typeDefault = (rf[m.role as 'partner' | 'associate'] ?? []).includes(f.id)
+          return (
+            <li key={f.id} className="flex items-center gap-3 py-2">
+              <span className="flex-1 text-sm">{f.label}{typeof o[f.id] === 'boolean' && <span className="ml-1 text-[11px] text-violet-600">(changed)</span>}</span>
+              <input type="checkbox" className="h-5 w-5" aria-label={`${f.label} for ${m.full_name}`} checked={on} onChange={(e) => {
+                const next = { ...o }
+                if (e.target.checked === typeDefault) delete next[f.id]; else next[f.id] = e.target.checked
+                onSave(next, `${f.label}: ${e.target.checked ? 'on' : 'off'} for ${m.full_name || 'member'}`)
+              }} />
+            </li>
+          )
+        })}
+      </ul>
+    </div>
   )
 }
 

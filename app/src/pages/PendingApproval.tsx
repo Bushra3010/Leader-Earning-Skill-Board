@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import AuthLayout from '../components/AuthLayout'
-import { ErrorNote } from '../components/ui'
+import { ErrorNote, SosSheet } from '../components/ui'
 import { api } from '../lib/api'
 import { useSession } from '../lib/session'
 
@@ -12,6 +12,7 @@ export default function PendingApproval() {
   const [f, setF] = useState({ full_name: profile?.full_name ?? '', phone: profile?.phone ?? '', city: profile?.city ?? '' })
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [help, setHelp] = useState(false)
   if (!profile) return null
   const complete = !!(profile.full_name.trim() && (profile.phone ?? '').replace(/\D/g, '').length >= 10 && (profile.city ?? '').trim())
   const wa = settings.whatsapp_number.replace(/\D/g, '')
@@ -33,7 +34,11 @@ export default function PendingApproval() {
         <ErrorNote msg={err} />
         <button className="btn-primary w-full !py-3.5" disabled={busy}>{busy ? 'Saving…' : 'Save & continue'}</button>
       </form>
-      <button className="mt-4 w-full text-center text-sm text-slate-500 underline" onClick={logout}>Log out</button>
+      <div className="mt-4 flex justify-center gap-5 text-sm">
+        <button className="text-[#2347c9] underline" onClick={() => setHelp(true)}>Help & Support</button>
+        <button className="text-slate-500 underline" onClick={logout}>Log out</button>
+      </div>
+      <SosSheet open={help} onClose={() => setHelp(false)} topic="Account approval" />
     </AuthLayout>
   )
 
@@ -47,9 +52,13 @@ export default function PendingApproval() {
       </div>
       <div className="mt-4 grid gap-3">
         {wa && <a className="btn bg-[#25D366] text-white" href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hello, please approve my Leaders account. Member ID: ${profile.referral_code}, Name: ${profile.full_name}`)}`} target="_blank" rel="noreferrer">💬 Message us on WhatsApp</a>}
-        {!rejected && <button className="btn-soft" onClick={async () => { await refresh(); toast('Checked — still waiting') }}>⟳ Check again</button>}
+        <div className="grid grid-cols-2 gap-3">
+          {!rejected && <button className="btn-soft" onClick={async () => { await refresh(); toast('Checked — still waiting') }}>⟳ Check again</button>}
+          <button className={`btn-primary ${rejected ? 'col-span-2' : ''}`} onClick={() => setHelp(true)}>🆘 Help & Support</button>
+        </div>
         <button className="btn-outline" onClick={logout}>Log out</button>
       </div>
+      <SosSheet open={help} onClose={() => setHelp(false)} topic="Account approval" />
     </AuthLayout>
   )
 }

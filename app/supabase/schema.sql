@@ -627,3 +627,73 @@ commit;
 drop policy if exists "product images read" on storage.objects;
 create policy "product images read" on storage.objects for select
   using (bucket_id = 'product-images');
+
+-- Added 2026-11-27 (also in supabase/migrations/20261127_support_tickets.sql)
+alter table public.support_tickets add column if not exists admin_reply text;
+alter table public.support_tickets add column if not exists replied_at timestamptz;
+
+drop policy if exists "tickets admin update" on public.support_tickets;
+create policy "tickets admin update" on public.support_tickets for update
+  using (public.is_admin()) with check (public.is_admin());
+
+-- Added 2026-11-27 (also in supabase/migrations/20261127_demo_videos.sql)
+create table if not exists public.demo_videos (
+  id uuid primary key default gen_random_uuid(),
+  title text not null,
+  video_url text not null,
+  product_id uuid references public.products(id) on delete set null,
+  sort_order integer not null default 0,
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+alter table public.demo_videos enable row level security;
+drop policy if exists "videos read" on public.demo_videos;
+create policy "videos read" on public.demo_videos for select using ((active and public.is_approved()) or public.is_admin());
+drop policy if exists "videos admin" on public.demo_videos;
+create policy "videos admin" on public.demo_videos for all using (public.is_admin()) with check (public.is_admin());
+
+-- Video files: public bucket (so they play anywhere), only admins can upload/change/delete. 50 MB each.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('demo-videos', 'demo-videos', true, 52428800, array['video/mp4', 'video/webm', 'video/quicktime', 'video/3gpp'])
+on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+drop policy if exists "demo videos read" on storage.objects;
+create policy "demo videos read" on storage.objects for select using (bucket_id = 'demo-videos');
+drop policy if exists "demo videos admin insert" on storage.objects;
+create policy "demo videos admin insert" on storage.objects for insert to authenticated with check (bucket_id = 'demo-videos' and public.is_admin());
+drop policy if exists "demo videos admin update" on storage.objects;
+create policy "demo videos admin update" on storage.objects for update to authenticated using (bucket_id = 'demo-videos' and public.is_admin());
+drop policy if exists "demo videos admin delete" on storage.objects;
+create policy "demo videos admin delete" on storage.objects for delete to authenticated using (bucket_id = 'demo-videos' and public.is_admin());
+
+-- Added 2026-11-27 (also in supabase/migrations/20261127_member_features.sql)
+alter table public.profiles add column if not exists feature_overrides jsonb not null default '{}'::jsonb;
+
+-- Members cannot change their own overrides.
+create or replace function public.protect_profile_fields() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() and coalesce(current_setting('app.trusted', true), '') <> 'on' then
+    new.role := old.role; new.points := old.points; new.referral_code := old.referral_code;
+    new.referred_by := old.referred_by; new.kit_status := old.kit_status;
+    new.approval_status := old.approval_status; new.leaderboard_pin := old.leaderboard_pin;
+    new.feature_overrides := old.feature_overrides;
+    if new.kyc_status not in ('not_submitted', 'submitted') then new.kyc_status := old.kyc_status; end if;
+  end if;
+  return new;
+end $$;
+
+-- Members list also returns the overrides (new column added at the end).
+create or replace view public.admin_member_stats as
+  select p.id, p.full_name, p.email, p.phone, p.city, p.referral_code, p.role, p.kit_status, p.kyc_status,
+         p.approval_status, p.leaderboard_pin, p.created_at,
+         up.full_name as upline_name, up.referral_code as upline_code,
+         (select count(*) from profiles t where t.referred_by = p.id) as team_size,
+         (select count(*) from orders o where o.partner_id = p.id and o.status = 'paid') as paid_orders,
+         (select coalesce(sum(o.amount), 0) from orders o where o.partner_id = p.id and o.status = 'paid') as sales_amount,
+         (select coalesce(sum(w.amount), 0) from wallet_transactions w where w.partner_id = p.id and w.kind in ('commission', 'bonus', 'reversal')) as incentive_earned,
+         (select coalesce(sum(x.amount), 0) from withdrawals x where x.partner_id = p.id and x.status = 'paid') as paid_out,
+         (select coalesce(sum(x.amount), 0) from withdrawals x where x.partner_id = p.id and x.status in ('requested', 'approved')) as pending_payout,
+         (select coalesce(sum(w.amount), 0) from wallet_transactions w where w.partner_id = p.id) as wallet_balance,
+         p.feature_overrides
+  from profiles p left join profiles up on up.id = p.referred_by
+  where public.is_admin();

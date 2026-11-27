@@ -1,6 +1,6 @@
 import type {
   AdminOrder, AppNotification, DeliveryStatus, Lesson, OrderStatus, PartnerOrder, Product, Profile,
-  Settings, SignUpInput, TeamMember, WalletTx, Withdrawal, LeaderRow, TeamStats, MemberStat,
+  Settings, SignUpInput, TeamMember, WalletTx, Withdrawal, LeaderRow, TeamStats, MemberStat, SupportTicket, DemoVideo,
 } from './types'
 import { demoApi } from './demo'
 import { supabaseApi } from './supa'
@@ -30,6 +30,8 @@ export interface Api {
   listNotifications(): Promise<AppNotification[]>
   markNotificationsRead(ids: string[]): Promise<void>
   createTicket(subject: string, message: string): Promise<void>
+  listMyTickets(): Promise<SupportTicket[]>
+  listVideos(): Promise<DemoVideo[]>
   getSettings(): Promise<Settings>
   requestPartnerKit(paymentRef: string): Promise<void>
   listLessons(): Promise<Lesson[]>
@@ -43,6 +45,12 @@ export interface Api {
   adminUpdateWithdrawal(id: string, status: Withdrawal['status'], note?: string): Promise<void>
   adminListPartners(): Promise<Profile[]>
   adminListMembers(): Promise<MemberStat[]>
+  adminListTickets(): Promise<SupportTicket[]>
+  adminSaveVideo(v: Partial<DemoVideo> & { title: string; video_url: string }): Promise<void>
+  adminDeleteVideo(id: string): Promise<void>
+  /** Uploads a video file and returns its public URL. */
+  adminUploadVideo(file: File, onProgress?: (pct: number) => void): Promise<string>
+  adminUpdateTicket(id: string, patch: { status?: SupportTicket['status']; admin_reply?: string | null }): Promise<void>
   adminUpdatePartner(id: string, patch: Partial<Profile>): Promise<void>
   adminSaveProduct(p: Partial<Product> & { slug: string }): Promise<void>
   /** Uploads a product picture and returns its public URL. */

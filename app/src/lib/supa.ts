@@ -125,6 +125,47 @@ export const supabaseApi: Api = {
     if (!ids.length) return
     check(await supabase.from('notification_reads').upsert(ids.map((n) => ({ notification_id: n, user_id: id }))))
   },
+  async listMyTickets() {
+    const id = await uid()
+    return check(await supabase.from('support_tickets').select('*').eq('user_id', id).order('created_at', { ascending: false }).limit(20))
+  },
+  async listVideos() {
+    const r = await supabase.from('demo_videos').select('*').order('sort_order').order('created_at', { ascending: false })
+    if (r.error && /demo_videos/.test(r.error.message)) return []
+    return check(r)
+  },
+  async adminSaveVideo(v) {
+    const { id, ...rest } = v
+    const r = id ? await supabase.from('demo_videos').update(rest).eq('id', id) : await supabase.from('demo_videos').insert(rest)
+    if (r.error && /demo_videos/.test(r.error.message)) throw new Error('Videos need a database update first (supabase/migrations/20261127_demo_videos.sql).')
+    check(r)
+  },
+  async adminDeleteVideo(id) {
+    check(await supabase.from('demo_videos').delete().eq('id', id))
+  },
+  async adminUploadVideo(file, onProgress) {
+    const ext = (file.name.split('.').pop() || 'mp4').toLowerCase().replace(/[^a-z0-9]/g, '') || 'mp4'
+    const path = `video-${Date.now()}.${ext}`
+    onProgress?.(5)
+    const r = await supabase.storage.from('demo-videos').upload(path, file, { contentType: file.type || 'video/mp4', upsert: false, cacheControl: '31536000' })
+    if (r.error) {
+      if (/bucket not found/i.test(r.error.message)) throw new Error('Video upload needs a database update first (supabase/migrations/20261127_demo_videos.sql).')
+      if (/exceeded|too large|maximum/i.test(r.error.message)) throw new Error('Video is too big — keep it under 50 MB (a 30–60 sec phone video usually is).')
+      throw new Error(r.error.message)
+    }
+    onProgress?.(100)
+    return supabase.storage.from('demo-videos').getPublicUrl(path).data.publicUrl
+  },
+  async adminListTickets() {
+    return check(await supabase.from('support_tickets').select('*, profiles(full_name, phone, referral_code, approval_status)').order('created_at', { ascending: false }).limit(500))
+  },
+  async adminUpdateTicket(id, patch) {
+    const body = patch.admin_reply !== undefined ? { ...patch, replied_at: patch.admin_reply ? new Date().toISOString() : null } : patch
+    const r = await supabase.from('support_tickets').update(body).eq('id', id).select('id')
+    if (r.error && /admin_reply|replied_at/.test(r.error.message)) throw new Error('Replies need a database update first (supabase/migrations/20261127_support_tickets.sql).')
+    if (!r.error && !(r.data ?? []).length) throw new Error('Not saved — run supabase/migrations/20261127_support_tickets.sql first.')
+    check(r)
+  },
   async createTicket(subject, message) {
     const id = await uid()
     check(await supabase.from('support_tickets').insert({ user_id: id, subject, message }))
@@ -167,7 +208,9 @@ export const supabaseApi: Api = {
     return check(await supabase.from('profiles').select('*').order('created_at', { ascending: false }))
   },
   async adminUpdatePartner(id, patch) {
-    check(await supabase.from('profiles').update(patch).eq('id', id))
+    const r = await supabase.from('profiles').update(patch).eq('id', id)
+    if (r.error && /feature_overrides/.test(r.error.message)) throw new Error('Per-member menus need a database update first (supabase/migrations/20261127_member_features.sql).')
+    check(r)
   },
   async adminSaveProduct(p) {
     const { id, ...rest } = p

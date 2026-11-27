@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { IconBell, IconClipboard, IconGrid, IconGridFill, IconHome, IconHomeFill, IconIdCard, IconLayers, IconPlay, IconUser } from './icons'
-import { api, partnerLink } from '../lib/api'
+import { api, fmtDate, partnerLink } from '../lib/api'
 import { sharePosterWithText } from '../lib/canvasCards'
 import { useCan, useLoad, useSession } from '../lib/session'
 import { ROLE_LABEL, type Product } from '../lib/types'
@@ -255,36 +255,66 @@ export function ShareSheet({ product, onClose }: { product: Product | null; onCl
   )
 }
 
-export function SosSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { settings, toast } = useSession()
-  const [subject, setSubject] = useState('Payment / payout issue')
+export function SosSheet({ open, onClose, topic }: { open: boolean; onClose: () => void; topic?: string }) {
+  const { settings, profile, toast } = useSession()
+  const topics = ['Account approval', 'Payment / payout issue', 'Order or delivery problem', 'Commission not credited', 'Partner fee (₹999)', 'App not working', 'Other']
+  const [subject, setSubject] = useState(topic ?? 'Payment / payout issue')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const [mine, , reloadMine] = useLoad(() => (open ? api.listMyTickets().catch(() => []) : Promise.resolve([])), [open])
+  useEffect(() => { if (open && topic) setSubject(topic) }, [open, topic])
   const wa = settings.whatsapp_number.replace(/\D/g, '')
+  const who = profile ? ` — ${profile.full_name} (${profile.referral_code})` : ''
+  const contacts = [
+    settings.support_phone && <a key="c" className="btn-soft" href={`tel:${settings.support_phone}`}>📞 Call</a>,
+    wa && <a key="w" className="btn bg-[#25D366] text-white" href={`https://wa.me/${wa}?text=${encodeURIComponent(`Hello, I need help${who}`)}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>,
+    settings.support_email && <a key="e" className="btn-soft" href={`mailto:${settings.support_email}?subject=${encodeURIComponent(`Help needed${who}`)}`}>✉️ Email</a>,
+  ].filter(Boolean)
   return (
-    <Sheet open={open} onClose={onClose} title="SOS — Get help fast">
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        {settings.support_phone ? <a className="btn-soft" href={`tel:${settings.support_phone}`}>📞 Call support</a> : <span className="btn-soft opacity-50">📞 Not set</span>}
-        {wa ? <a className="btn bg-[#25D366] text-white" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">💬 WhatsApp</a> : <span className="btn-soft opacity-50">💬 Not set</span>}
-      </div>
+    <Sheet open={open} onClose={onClose} title="Help & Support">
+      {contacts.length > 0 && (
+        <>
+          <p className="mb-2 text-sm text-slate-500">Contact us directly</p>
+          <div className={`mb-5 grid gap-3 ${contacts.length === 1 ? 'grid-cols-1' : contacts.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>{contacts}</div>
+        </>
+      )}
       <form className="space-y-3" onSubmit={async (e) => {
         e.preventDefault(); if (!msg.trim()) return
         setBusy(true)
-        try { await api.createTicket(subject, msg.trim()); toast('Ticket raised — we will reply soon'); setMsg(''); onClose() }
+        try { await api.createTicket(subject, msg.trim()); toast('Message sent — we will reply here soon'); setMsg(''); reloadMine() }
         catch (er) { toast(er instanceof Error ? er.message : 'Failed') } finally { setBusy(false) }
       }}>
+        <p className="font-bold">Send us a message</p>
         <div>
           <label className="label">Topic</label>
           <select className="input" value={subject} onChange={(e) => setSubject(e.target.value)}>
-            {['Payment / payout issue', 'Order or delivery problem', 'Commission not credited', 'App not working', 'Other'].map((s) => <option key={s}>{s}</option>)}
+            {topics.map((s) => <option key={s}>{s}</option>)}
           </select>
         </div>
         <div>
-          <label className="label">Describe the problem</label>
-          <textarea className="input min-h-[96px]" value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Order ID, what happened…" />
+          <label className="label">Your message</label>
+          <textarea className="input min-h-[96px]" value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Tell us what you need — order ID, payment reference, anything that helps…" />
         </div>
-        <button className="btn-primary w-full" disabled={busy}>{busy ? 'Sending…' : 'Raise ticket'}</button>
+        <button className="btn-primary w-full" disabled={busy || !msg.trim()}>{busy ? 'Sending…' : 'Send message'}</button>
       </form>
+      {!!mine?.length && (
+        <div className="mt-5">
+          <p className="mb-2 font-bold">Your requests</p>
+          <ul className="space-y-2">
+            {mine.map((t) => (
+              <li key={t.id} className="rounded-2xl border border-slate-200 p-3 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <b className="truncate">{t.subject}</b>
+                  <span className={`chip shrink-0 ${t.status === 'closed' ? '' : t.admin_reply ? '!border-emerald-200 !bg-emerald-50 !text-emerald-700' : '!border-amber-200 !bg-amber-50 !text-amber-700'}`}>{t.status === 'closed' ? 'closed' : t.admin_reply ? 'replied' : 'waiting'}</span>
+                </div>
+                <p className="mt-1 whitespace-pre-wrap text-slate-600">{t.message}</p>
+                {t.admin_reply && <p className="mt-2 whitespace-pre-wrap rounded-xl bg-emerald-50 p-2.5 text-emerald-900"><b>Reply:</b> {t.admin_reply}</p>}
+                <p className="mt-1 text-xs text-slate-400">{fmtDate(t.created_at)}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </Sheet>
   )
 }

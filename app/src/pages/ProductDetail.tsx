@@ -4,6 +4,7 @@ import { copyText, ShareSheet, Shell, Spinner, SubHeader } from '../components/u
 import { api, inr, partnerLink } from '../lib/api'
 import { useLoad, useSession } from '../lib/session'
 import { CAT_LABEL, categoryOf } from '../lib/category'
+import { VideoStrip } from '../components/Videos'
 
 export default function ProductDetail() {
   const { slug = '' } = useParams()
@@ -56,6 +57,7 @@ export default function ProductDetail() {
           <button className="btn-outline !py-3.5" onClick={async () => { if (profile) { await copyText(partnerLink(p.slug, profile.referral_code)); toast('Link copied') } }}>Copy link</button>
           <button className="btn-primary !py-3.5" onClick={() => setShare(true)}>Share & Earn</button>
         </div>
+        <VideoStrip productId={p.id} title="Demo videos" sub="Watch, then show your customer" />
       </main>
       <ShareSheet product={share ? p : null} onClose={() => setShare(false)} />
     </Shell>

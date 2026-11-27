@@ -6,6 +6,7 @@ import { api, inr, walletBalance } from '../lib/api'
 import { useCan, useLoad, useSession } from '../lib/session'
 import type { Product } from '../lib/types'
 import { LeaderboardCard } from './Leaderboard'
+import { VideoStrip } from '../components/Videos'
 
 export default function Home() {
   const { profile, settings } = useSession()
@@ -97,6 +98,8 @@ export default function Home() {
             {can('team') && <Action to="/team" label="My Team" icon={<IconUsers size={30} />} cls="from-emerald-100 to-emerald-50 text-emerald-600" />}
           </div>
         </section>
+
+        <VideoStrip />
 
         {can('leaderboard') && <LeaderboardCard />}
 

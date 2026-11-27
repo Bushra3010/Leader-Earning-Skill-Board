@@ -42,6 +42,8 @@ export interface Profile {
   approval_status?: 'pending' | 'approved' | 'rejected'
   /** Admin-chosen leaderboard position (1 = top). */
   leaderboard_pin?: number | null
+  /** Per-member menu switches set by admin; missing keys follow the member type. */
+  feature_overrides?: Partial<Record<Feature, boolean>>
 }
 
 export interface Product {
@@ -127,6 +129,28 @@ export interface AppNotification {
   read?: boolean
 }
 
+export interface DemoVideo {
+  id: string
+  title: string
+  video_url: string
+  product_id: string | null
+  sort_order: number
+  active: boolean
+  created_at: string
+}
+
+export interface SupportTicket {
+  id: string
+  user_id: string
+  subject: string
+  message: string
+  status: 'open' | 'closed'
+  admin_reply?: string | null
+  replied_at?: string | null
+  created_at: string
+  profiles?: { full_name: string; phone: string | null; referral_code: string; approval_status?: string } | null
+}
+
 export interface TeamMember {
   id: string
   full_name: string
@@ -158,6 +182,7 @@ export interface MemberStat {
   kyc_status: Profile['kyc_status']
   approval_status: NonNullable<Profile['approval_status']>
   leaderboard_pin: number | null
+  feature_overrides?: Partial<Record<Feature, boolean>>
   created_at: string
   upline_name: string | null
   upline_code: string | null
@@ -208,3 +233,11 @@ export interface SignUpInput {
   ref_code: string
 }
 
+
+/** Whether a member gets a menu: their own override first, then their member type's setting. Admins get everything. */
+export function memberCan(m: Pick<Profile, 'role' | 'feature_overrides'>, f: Feature, roleFeatures: RoleFeatures): boolean {
+  if (m.role === 'admin') return true
+  const o = m.feature_overrides?.[f]
+  if (typeof o === 'boolean') return o
+  return (roleFeatures[m.role] ?? DEFAULT_ROLE_FEATURES[m.role]).includes(f)
+}

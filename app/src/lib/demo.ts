@@ -3,7 +3,7 @@
 import type { Api } from './api'
 import { DEFAULT_SETTINGS, SEED_LESSONS, SEED_PRODUCTS } from './seed'
 import type {
-  AdminOrder, AppNotification, Lesson, OrderStatus, PartnerOrder, Product, Profile, Settings, WalletTx, Withdrawal,
+  AdminOrder, AppNotification, DemoVideo, Lesson, OrderStatus, PartnerOrder, Product, Profile, Settings, WalletTx, Withdrawal,
 } from './types'
 import { maskPhone } from './format'
 
@@ -17,9 +17,10 @@ interface DB {
   withdrawals: Withdrawal[]
   notifications: AppNotification[]
   reads: { n: string; u: string }[]
-  tickets: { id: string; user_id: string; subject: string; message: string; created_at: string }[]
+  tickets: { id: string; user_id: string; subject: string; message: string; created_at: string; status?: 'open' | 'closed'; admin_reply?: string | null; replied_at?: string | null }[]
   lessons: Lesson[]
   settings: Settings
+  videos?: DemoVideo[]
 }
 
 const KEY = 'lesb-demo-db-v1'
@@ -169,8 +170,8 @@ export const demoApi: Api = {
     const s = need()
     mut((db) => {
       const p = db.profiles.find((x) => x.id === s)!
-      const { role, points, referral_code, referred_by, kit_status, ...safe } = patch
-      void role; void points; void referral_code; void referred_by; void kit_status
+      const { role, points, referral_code, referred_by, kit_status, approval_status, leaderboard_pin, feature_overrides, ...safe } = patch
+      void role; void points; void referral_code; void referred_by; void kit_status; void approval_status; void leaderboard_pin; void feature_overrides
       Object.assign(p, safe)
     })
   },
@@ -325,6 +326,41 @@ export const demoApi: Api = {
       else db.products.push({ ...SEED_PRODUCTS[0], is_featured: false, ...p, id: 'prod-' + rid(), sort_order: db.products.length } as Product)
     })
   },
+  async listVideos() {
+    const db = load(); const admin = isAdmin(db)
+    return delay((db.videos ?? []).filter((v) => v.active || admin).sort((a, b) => a.sort_order - b.sort_order || b.created_at.localeCompare(a.created_at)))
+  },
+  async adminSaveVideo(v) {
+    mut((db) => {
+      db.videos ??= []
+      const ex = v.id ? db.videos.find((x) => x.id === v.id) : undefined
+      if (ex) Object.assign(ex, v)
+      else db.videos.push({ product_id: null, sort_order: db.videos.length, active: true, ...v, id: 'vid-' + rid(), created_at: new Date().toISOString() })
+    })
+  },
+  async adminDeleteVideo(id) { mut((db) => { db.videos = (db.videos ?? []).filter((v) => v.id !== id) }) },
+  async adminUploadVideo(file, onProgress) {
+    onProgress?.(50)
+    return URL.createObjectURL(file) // demo only: plays in this browser session
+  },
+  async listMyTickets() {
+    const s = need()
+    return delay(load().tickets.filter((t) => t.user_id === s).map((t) => ({ status: 'open' as const, ...t })).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+  },
+  async adminListTickets() {
+    const db = load()
+    return delay(db.tickets.map((t) => {
+      const p = db.profiles.find((x) => x.id === t.user_id)
+      return { status: 'open' as const, ...t, profiles: p ? { full_name: p.full_name, phone: p.phone, referral_code: p.referral_code, approval_status: p.approval_status } : null }
+    }).sort((a, b) => b.created_at.localeCompare(a.created_at)))
+  },
+  async adminUpdateTicket(id, patch) {
+    mut((db) => {
+      const t = db.tickets.find((x) => x.id === id)!
+      if (patch.status) t.status = patch.status
+      if (patch.admin_reply !== undefined) { t.admin_reply = patch.admin_reply; t.replied_at = patch.admin_reply ? new Date().toISOString() : null }
+    })
+  },
   async adminListMembers() {
     const db = load()
     const sum = (a: number[]) => a.reduce((x, y) => x + y, 0)
@@ -335,7 +371,7 @@ export const demoApi: Api = {
       const wd = db.withdrawals.filter((w) => w.partner_id === p.id)
       return {
         id: p.id, full_name: p.full_name, email: p.email, phone: p.phone, city: p.city, referral_code: p.referral_code, role: p.role,
-        kit_status: p.kit_status, kyc_status: p.kyc_status, approval_status: p.approval_status ?? 'approved', leaderboard_pin: p.leaderboard_pin ?? null,
+        kit_status: p.kit_status, kyc_status: p.kyc_status, approval_status: p.approval_status ?? 'approved', leaderboard_pin: p.leaderboard_pin ?? null, feature_overrides: p.feature_overrides ?? {},
         created_at: p.created_at, upline_name: up?.full_name ?? null, upline_code: up?.referral_code ?? null,
         team_size: db.profiles.filter((x) => x.referred_by === p.id).length, paid_orders: paid.length, sales_amount: sum(paid.map((o) => o.amount)),
         incentive_earned: sum(tx.filter((w) => w.kind !== 'withdrawal').map((w) => w.amount)),
